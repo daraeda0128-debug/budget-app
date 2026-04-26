@@ -762,24 +762,32 @@ function saveFixed(items, ym){
   fbSet(`fixed/${ym}`, items.length ? items : null)
     .catch(e => console.error('saveFixed Firebase 오류:', e));
 
-  // 미래 월에 동일 항목 반영
+  // 미래 12개월에 동일 항목 일괄 반영 (localStorage 저장 여부 무관)
   const [y, m] = ym.split('-').map(Number);
-  for(let i=1; i<=36; i++){
+  for(let i=1; i<=12; i++){
     let fy=y, fm=m+i;
-    if(fm>12){fm-=12;fy++;}
+    while(fm>12){fm-=12;fy++;}
     const fym = `${fy}-${String(fm).padStart(2,'0')}`;
     const saved = localStorage.getItem('fixedItems_'+fym);
-    if(!saved) break;
-    const futureItems = JSON.parse(saved);
-    const updated = futureItems.map(fi => {
-      const match = items.find(ci => ci.id === fi.id);
-      return match ? {...fi, amt:match.amt, name:match.name, cat:match.cat, note:match.note, payDay:match.payDay} : fi;
-    });
-    items.forEach(ci => {
-      if(!updated.find(fi=>fi.id===ci.id)) updated.push({...ci});
-    });
-    const currentIds = new Set(items.map(i=>i.id));
-    const finalItems = updated.filter(fi=>currentIds.has(fi.id));
+    let finalItems;
+    if(saved){
+      // 미래 월에 이미 저장된 게 있으면 id 매칭하여 업데이트
+      const futureItems = JSON.parse(saved);
+      const updated = futureItems.map(fi => {
+        const match = items.find(ci => ci.id === fi.id);
+        return match ? {...fi, amt:match.amt, name:match.name, cat:match.cat, note:match.note, payDay:match.payDay} : fi;
+      });
+      // 새 항목 추가
+      items.forEach(ci => {
+        if(!updated.find(fi=>fi.id===ci.id)) updated.push({...ci});
+      });
+      // 삭제된 항목 제거
+      const currentIds = new Set(items.map(i=>i.id));
+      finalItems = updated.filter(fi=>currentIds.has(fi.id));
+    } else {
+      // 저장된 게 없으면 이번 달 항목을 그대로 복사
+      finalItems = items.map(it => ({...it}));
+    }
     localStorage.setItem('fixedItems_'+fym, JSON.stringify(finalItems));
     fbSet(`fixed/${fym}`, finalItems.length ? finalItems : null)
       .catch(e => console.error('saveFixed 미래월 Firebase 오류:', e));
