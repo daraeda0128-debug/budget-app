@@ -205,8 +205,8 @@ background:var(–bg2);color:var(–text2);cursor:pointer;white-space:nowrap;fon
 .h-filter-btn.on{background:var(–text);color:var(–bg);border-color:var(–text)}
 
 /* SETTINGS overlay */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end}
-.overlay.on{display:flex}
+.overlay{display:none !important;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.overlay.on{display:flex !important}
 .settings-sheet{background:var(–bg);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%}
 .settings-title{font-size:17px;font-weight:700;margin-bottom:20px}
 .settings-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -1721,17 +1721,20 @@ function initLocal(){
   renderFixed();
   updateConnStatus();
 
-  // 고정지출 실시간 리스너 — 다른 기기에서 수정 시 즉시 반영
-  let fixedInitDone = false;
-  db.ref('fixed').on('value', snap => {
-    if(!fixedInitDone){ fixedInitDone = true; return; } // 첫 로드 무시 (initFromSheet에서 이미 처리)
-    if(!snap.exists()) return;
-    const allFixed = snap.val();
-    Object.entries(allFixed).forEach(([ym, items]) => {
-      if(items) localStorage.setItem('fixedItems_' + ym, JSON.stringify(items));
-    });
+  // 고정지출 실시간 리스너 — child_changed로 변경분만 감지
+  db.ref('fixed').on('child_changed', snap => {
+    const ym = snap.key;
+    const items = snap.val();
+    if(items) localStorage.setItem('fixedItems_' + ym, JSON.stringify(items));
+    else localStorage.removeItem('fixedItems_' + ym);
     renderFixed();
     renderDash();
+  });
+
+  db.ref('fixed').on('child_added', snap => {
+    const ym = snap.key;
+    const items = snap.val();
+    if(items) localStorage.setItem('fixedItems_' + ym, JSON.stringify(items));
   });
 }
 
