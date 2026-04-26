@@ -4,9 +4,11 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="color-scheme" content="light dark"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-<meta name="theme-color" content="#ffffff"/>
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff"/>
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a18"/>
 <title>가계부 — 진수·미나</title>
 <link rel="manifest" href="manifest.json"/>
 <!-- Firebase SDK -->
@@ -1719,8 +1721,10 @@ function initLocal(){
   renderFixed();
   updateConnStatus();
 
-  // 고정지출 실시간 리스너 — 다른 기기에서 수정하면 즉시 반영
+  // 고정지출 실시간 리스너 — 다른 기기에서 수정 시 즉시 반영
+  let fixedInitDone = false;
   db.ref('fixed').on('value', snap => {
+    if(!fixedInitDone){ fixedInitDone = true; return; } // 첫 로드 무시 (initFromSheet에서 이미 처리)
     if(!snap.exists()) return;
     const allFixed = snap.val();
     Object.entries(allFixed).forEach(([ym, items]) => {
