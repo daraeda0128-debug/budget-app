@@ -480,65 +480,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   <div class="card" id="f-list"></div>
 </div>
 
-<!-- 고정지출 추가/수정 모달 -->
-
-<div class="overlay" id="fixed-modal" onclick="if(event.target===this)closeAddFixed()">
-  <div class="settings-sheet">
-    <div class="settings-title" id="fi-modal-title">고정지출 추가</div>
-    <div class="fg">
-      <label class="fl">항목명</label>
-      <input type="text" id="fi-name" placeholder="ex) 넷플릭스"/>
-    </div>
-    <div class="fg">
-      <label class="fl">월 금액 (원)</label>
-      <input type="text" inputmode="numeric" id="fi-amt" placeholder="13,500" autocomplete="off"/>
-    </div>
-    <div class="fg">
-      <label class="fl">구분</label>
-      <select id="fi-cat">
-        <option value="대출">대출/부채</option>
-        <option value="공과금">공과금</option>
-        <option value="구독">월 구독료</option>
-        <option value="교통">교통비(유류대)</option>
-        <option value="저축">저축</option>
-      </select>
-    </div>
-    <div class="fg">
-      <label class="fl">메모 (카드사 등)</label>
-      <input type="text" id="fi-note" placeholder="ex) 신한카드"/>
-    </div>
-    <div class="fg">
-      <label class="fl">매월 출금일 (일, 없으면 비워두기)</label>
-      <input type="number" id="fi-payday" placeholder="25" min="1" max="31" style="font-size:13px"/>
-    </div>
-    <input type="hidden" id="fi-edit-id"/>
-    <div style="display:flex;gap:8px">
-      <button class="save-url" onclick="saveAddFixed()" id="fi-save-btn" style="flex:1">추가</button>
-      <button class="save-url" onclick="closeAddFixed()" style="flex:1;background:var(--bg3);color:var(--text)">취소</button>
-    </div>
-  </div>
-</div>
-
-<!-- 항목 액션 바텀시트 -->
-
-<div class="overlay" id="fixed-action-sheet" onclick="if(event.target===this)closeActionSheet()">
-  <div class="settings-sheet" style="padding:16px 0 32px">
-    <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="action-title">항목명</div>
-    <button onclick="actionEdit()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:18px">✏️</span> 수정
-    </button>
-    <button onclick="actionMoveUp()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:18px">⬆️</span> 위로 이동
-    </button>
-    <button onclick="actionMoveDown()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:18px">⬇️</span> 아래로 이동
-    </button>
-    <button onclick="actionDelete()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--red);display:flex;align-items:center;gap:12px">
-      <span style="font-size:18px">🗑️</span> 삭제
-    </button>
-  </div>
-</div>
-
 <!-- ===== SIMULATION ===== -->
 
 <div id="sim" class="screen">
@@ -565,188 +506,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== CARD ===== -->
-
-<!-- 시뮬레이션 이벤트 추가 모달 -->
-
-<div class="overlay" id="sim-event-modal" onclick="if(event.target===this)closeSimEventModal()">
-  <div class="settings-sheet" style="padding:24px 20px 36px">
-
-```
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-  <div style="font-size:17px;font-weight:700" id="sim-event-title">이벤트 추가</div>
-  <button onclick="closeSimEventModal()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
-</div>
-
-<!-- 이벤트명 + 금액 -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-  <div class="fg" style="margin:0">
-    <label class="fl">이벤트명</label>
-    <input type="text" id="se-name" placeholder="진수 휴가비"/>
-  </div>
-  <div class="fg" style="margin:0">
-    <label class="fl">금액 (원)</label>
-    <input type="text" inputmode="numeric" id="se-amt" placeholder="700,000" autocomplete="off"/>
-  </div>
-</div>
-
-<!-- 구분 + 반복방식 -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-  <div class="fg" style="margin:0">
-    <label class="fl">구분</label>
-    <div class="seg">
-      <button class="seg-btn on-i" id="se-inc" onclick="setSeType('income')">수입</button>
-      <button class="seg-btn" id="se-exp" onclick="setSeType('expense')">지출</button>
-    </div>
-  </div>
-  <div class="fg" style="margin:0">
-    <label class="fl">반복 방식</label>
-    <div class="seg">
-      <button class="seg-btn on-j" id="se-once" onclick="setSeRepeat(false)">단발</button>
-      <button class="seg-btn" id="se-repeat" onclick="setSeRepeat(true)">매년</button>
-    </div>
-  </div>
-</div>
-
-<!-- 단발: 연월 -->
-<div id="se-once-wrap" class="fg">
-  <label class="fl">연월</label>
-  <input type="month" id="se-ym"/>
-</div>
-
-<!-- 매년 반복 -->
-<div id="se-repeat-wrap" style="display:none">
-  <div class="fg">
-    <label class="fl">발생 월</label>
-    <div id="se-month-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
-  </div>
-  <div class="fg">
-    <label class="fl">반복 기간</label>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
-      <select id="se-start-year" style="font-size:13px"></select>
-      <span style="font-size:12px;color:var(--text3)">~</span>
-      <select id="se-end-year" style="font-size:13px"></select>
-    </div>
-  </div>
-</div>
-
-<input type="hidden" id="se-edit-id"/>
-<button class="submit" onclick="saveSimEvent()" id="se-save-btn" style="margin-top:4px">추가</button>
-```
-
-  </div>
-</div>
-
-<!-- 내역 상세 팝업 -->
-
-<div class="overlay" id="tx-detail-sheet" onclick="if(event.target===this)closeTxDetail()">
-  <div class="settings-sheet" style="padding:0 0 32px">
-    <!-- 헤더 -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:0.5px solid var(--border)">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div id="td-ico" style="width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px"></div>
-        <div>
-          <div id="td-name" style="font-size:16px;font-weight:700"></div>
-          <div id="td-date" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
-        </div>
-      </div>
-      <button onclick="closeTxDetail()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer">×</button>
-    </div>
-
-```
-<!-- 금액 -->
-<div id="td-amt-wrap" style="padding:18px 20px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-  <span style="font-size:13px;color:var(--text2)">금액</span>
-  <span id="td-amt" style="font-size:22px;font-weight:700"></span>
-</div>
-
-<!-- 상세 정보 -->
-<div style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;border-bottom:0.5px solid var(--border)">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">카테고리</span>
-    <span id="td-cat" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">결제수단</span>
-    <span id="td-pay" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">누가</span>
-    <span id="td-who" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div id="td-memo-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-    <span style="font-size:13px;color:var(--text2);flex-shrink:0">메모</span>
-    <span id="td-memo" style="font-size:13px;font-weight:500;text-align:right;color:var(--text)"></span>
-  </div>
-</div>
-
-<!-- 액션 버튼 -->
-<div style="display:flex;gap:8px;padding:16px 20px 0">
-  <button id="td-edit-btn" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">✏️ 수정</button>
-  <button id="td-del-btn" style="flex:1;padding:12px;border:1px solid var(--red-light);border-radius:var(--radius-sm);background:var(--red-light);color:var(--red);font-size:14px;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
-</div>
-```
-
-  </div>
-</div>
-
-<!-- 내역 수정/삭제 액션 바텀시트 -->
-
-<div class="overlay" id="tx-action-sheet" onclick="if(event.target===this)closeTxAction()">
-  <div class="settings-sheet" style="padding:16px 0 32px">
-    <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="tx-action-name">내역명</div>
-    <button onclick="txActionEdit()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
-      <span style="font-size:18px">✏️</span> 수정
-    </button>
-    <button onclick="txActionDelete()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--red);display:flex;align-items:center;gap:12px">
-      <span style="font-size:18px">🗑️</span> 삭제
-    </button>
-  </div>
-</div>
-<div class="overlay" id="overlay" onclick="if(event.target===this)closeSettings()">
-  <div class="settings-sheet">
-    <div class="settings-title" id="fi-modal-title" style="display:none"></div>
-    <div class="settings-title">⚙️ 설정</div>
-    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">급여</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div>
-        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">진수 급여 (원)</label>
-        <input type="text" inputmode="numeric" id="sal-j" placeholder="3,213,670" style="font-size:13px" autocomplete="off"/>
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">미나 급여 (원)</label>
-        <input type="text" inputmode="numeric" id="sal-m" placeholder="2,837,120" style="font-size:13px" autocomplete="off"/>
-      </div>
-    </div>
-    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">재무</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div>
-        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">이월 잔액 (원)</label>
-        <input type="text" inputmode="numeric" id="carryover-input" placeholder="12,790,000" style="font-size:13px" autocomplete="off"/>
-      </div>
-      <div>
-        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">월 평균 소비 (원)</label>
-        <input type="text" inputmode="numeric" id="avg-spend-input" placeholder="2,000,000" style="font-size:13px" autocomplete="off"/>
-      </div>
-    </div>
-    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">보안 PIN</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <button onclick="closeSettings();openPinChange('master')"
-        style="padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit">
-        🔐 마스터 PIN 변경
-      </button>
-      <button onclick="closeSettings();openPinChange('guest')"
-        style="padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit">
-        👁 게스트 PIN 변경
-      </button>
-    </div>
-    <div style="display:flex;gap:8px">
-      <button class="save-url" onclick="saveSettings()" style="flex:1">저장</button>
-      <button class="save-url" onclick="closeSettings()" style="flex:1;background:var(--bg3);color:var(--text)">닫기</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 
@@ -999,32 +758,31 @@ function loadFixed(ym){
 function saveFixed(items, ym){
   ym = ym || ymKey();
   localStorage.setItem('fixedItems_' + ym, JSON.stringify(items));
-  syncFixedToSheet(ym, items);
+  // Firebase에 즉시 저장
+  fbSet(`fixed/${ym}`, items.length ? items : null)
+    .catch(e => console.error('saveFixed Firebase 오류:', e));
 
-  // 미래 월에 동일 항목이 있으면 함께 업데이트 (새로 생성된 달은 전달 복사로 자동 반영)
-  // 이미 저장된 미래 달에 한해 업데이트
+  // 미래 월에 동일 항목 반영
   const [y, m] = ym.split('-').map(Number);
   for(let i=1; i<=36; i++){
     let fy=y, fm=m+i;
     if(fm>12){fm-=12;fy++;}
     const fym = `${fy}-${String(fm).padStart(2,'0')}`;
     const saved = localStorage.getItem('fixedItems_'+fym);
-    if(!saved) break; // 저장된 미래 달이 없으면 중단 (이후는 전달복사로 자동반영)
+    if(!saved) break;
     const futureItems = JSON.parse(saved);
-    // 현재 수정된 항목들을 미래 달에도 동일하게 반영 (id 기준 매칭)
     const updated = futureItems.map(fi => {
       const match = items.find(ci => ci.id === fi.id);
       return match ? {...fi, amt:match.amt, name:match.name, cat:match.cat, note:match.note, payDay:match.payDay} : fi;
     });
-    // 현재 달에 새로 추가된 항목도 미래에 추가
     items.forEach(ci => {
       if(!updated.find(fi=>fi.id===ci.id)) updated.push({...ci});
     });
-    // 현재 달에서 삭제된 항목은 미래에서도 제거
     const currentIds = new Set(items.map(i=>i.id));
     const finalItems = updated.filter(fi=>currentIds.has(fi.id));
     localStorage.setItem('fixedItems_'+fym, JSON.stringify(finalItems));
-    syncFixedToSheet(fym, finalItems);
+    fbSet(`fixed/${fym}`, finalItems.length ? finalItems : null)
+      .catch(e => console.error('saveFixed 미래월 Firebase 오류:', e));
   }
 }
 
@@ -2209,5 +1967,247 @@ initPin();
 </script>
 
 </div><!-- #app -->
+<!-- 시뮬레이션 이벤트 추가 모달 -->
+<div class="overlay" id="sim-event-modal" onclick="if(event.target===this)closeSimEventModal()">
+  <div class="settings-sheet" style="padding:24px 20px 36px">
+
+```
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+  <div style="font-size:17px;font-weight:700" id="sim-event-title">이벤트 추가</div>
+  <button onclick="closeSimEventModal()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+</div>
+
+<!-- 이벤트명 + 금액 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+  <div class="fg" style="margin:0">
+    <label class="fl">이벤트명</label>
+    <input type="text" id="se-name" placeholder="진수 휴가비"/>
+  </div>
+  <div class="fg" style="margin:0">
+    <label class="fl">금액 (원)</label>
+    <input type="text" inputmode="numeric" id="se-amt" placeholder="700,000" autocomplete="off"/>
+  </div>
+</div>
+
+<!-- 구분 + 반복방식 -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+  <div class="fg" style="margin:0">
+    <label class="fl">구분</label>
+    <div class="seg">
+      <button class="seg-btn on-i" id="se-inc" onclick="setSeType('income')">수입</button>
+      <button class="seg-btn" id="se-exp" onclick="setSeType('expense')">지출</button>
+    </div>
+  </div>
+  <div class="fg" style="margin:0">
+    <label class="fl">반복 방식</label>
+    <div class="seg">
+      <button class="seg-btn on-j" id="se-once" onclick="setSeRepeat(false)">단발</button>
+      <button class="seg-btn" id="se-repeat" onclick="setSeRepeat(true)">매년</button>
+    </div>
+  </div>
+</div>
+
+<!-- 단발: 연월 -->
+<div id="se-once-wrap" class="fg">
+  <label class="fl">연월</label>
+  <input type="month" id="se-ym"/>
+</div>
+
+<!-- 매년 반복 -->
+<div id="se-repeat-wrap" style="display:none">
+  <div class="fg">
+    <label class="fl">발생 월</label>
+    <div id="se-month-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+  </div>
+  <div class="fg">
+    <label class="fl">반복 기간</label>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
+      <select id="se-start-year" style="font-size:13px"></select>
+      <span style="font-size:12px;color:var(--text3)">~</span>
+      <select id="se-end-year" style="font-size:13px"></select>
+    </div>
+  </div>
+</div>
+
+<input type="hidden" id="se-edit-id"/>
+<button class="submit" onclick="saveSimEvent()" id="se-save-btn" style="margin-top:4px">추가</button>
+```
+
+  </div>
+</div>
+
+<!-- 내역 상세 팝업 -->
+
+<div class="overlay" id="tx-detail-sheet" onclick="if(event.target===this)closeTxDetail()">
+  <div class="settings-sheet" style="padding:0 0 32px">
+    <!-- 헤더 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px 14px;border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="td-ico" style="width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px"></div>
+        <div>
+          <div id="td-name" style="font-size:16px;font-weight:700"></div>
+          <div id="td-date" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+        </div>
+      </div>
+      <button onclick="closeTxDetail()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer">×</button>
+    </div>
+
+```
+<!-- 금액 -->
+<div id="td-amt-wrap" style="padding:18px 20px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+  <span style="font-size:13px;color:var(--text2)">금액</span>
+  <span id="td-amt" style="font-size:22px;font-weight:700"></span>
+</div>
+
+<!-- 상세 정보 -->
+<div style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;border-bottom:0.5px solid var(--border)">
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:13px;color:var(--text2)">카테고리</span>
+    <span id="td-cat" style="font-size:13px;font-weight:500"></span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:13px;color:var(--text2)">결제수단</span>
+    <span id="td-pay" style="font-size:13px;font-weight:500"></span>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:13px;color:var(--text2)">누가</span>
+    <span id="td-who" style="font-size:13px;font-weight:500"></span>
+  </div>
+  <div id="td-memo-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+    <span style="font-size:13px;color:var(--text2);flex-shrink:0">메모</span>
+    <span id="td-memo" style="font-size:13px;font-weight:500;text-align:right;color:var(--text)"></span>
+  </div>
+</div>
+
+<!-- 액션 버튼 -->
+<div style="display:flex;gap:8px;padding:16px 20px 0">
+  <button id="td-edit-btn" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">✏️ 수정</button>
+  <button id="td-del-btn" style="flex:1;padding:12px;border:1px solid var(--red-light);border-radius:var(--radius-sm);background:var(--red-light);color:var(--red);font-size:14px;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
+</div>
+```
+
+  </div>
+</div>
+
+<!-- 내역 수정/삭제 액션 바텀시트 -->
+
+<div class="overlay" id="tx-action-sheet" onclick="if(event.target===this)closeTxAction()">
+  <div class="settings-sheet" style="padding:16px 0 32px">
+    <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="tx-action-name">내역명</div>
+    <button onclick="txActionEdit()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:18px">✏️</span> 수정
+    </button>
+    <button onclick="txActionDelete()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--red);display:flex;align-items:center;gap:12px">
+      <span style="font-size:18px">🗑️</span> 삭제
+    </button>
+  </div>
+</div>
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-sheet">
+    <div class="settings-title" id="fi-modal-title" style="display:none"></div>
+    <div class="settings-title">⚙️ 설정</div>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">급여</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">진수 급여 (원)</label>
+        <input type="text" inputmode="numeric" id="sal-j" placeholder="3,213,670" style="font-size:13px" autocomplete="off"/>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">미나 급여 (원)</label>
+        <input type="text" inputmode="numeric" id="sal-m" placeholder="2,837,120" style="font-size:13px" autocomplete="off"/>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">재무</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">이월 잔액 (원)</label>
+        <input type="text" inputmode="numeric" id="carryover-input" placeholder="12,790,000" style="font-size:13px" autocomplete="off"/>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">월 평균 소비 (원)</label>
+        <input type="text" inputmode="numeric" id="avg-spend-input" placeholder="2,000,000" style="font-size:13px" autocomplete="off"/>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">보안 PIN</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <button onclick="closeSettings();openPinChange('master')"
+        style="padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit">
+        🔐 마스터 PIN 변경
+      </button>
+      <button onclick="closeSettings();openPinChange('guest')"
+        style="padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:13px;cursor:pointer;font-family:inherit">
+        👁 게스트 PIN 변경
+      </button>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="save-url" onclick="saveSettings()" style="flex:1">저장</button>
+      <button class="save-url" onclick="closeSettings()" style="flex:1;background:var(--bg3);color:var(--text)">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ===== 모달 (앱 외부) ===== -->
+
+<!-- 고정지출 추가/수정 모달 -->
+
+<div class="overlay" id="fixed-modal" onclick="if(event.target===this)closeAddFixed()">
+  <div class="settings-sheet">
+    <div class="settings-title" id="fi-modal-title">고정지출 추가</div>
+    <div class="fg">
+      <label class="fl">항목명</label>
+      <input type="text" id="fi-name" placeholder="ex) 넷플릭스"/>
+    </div>
+    <div class="fg">
+      <label class="fl">월 금액 (원)</label>
+      <input type="text" inputmode="numeric" id="fi-amt" placeholder="13,500" autocomplete="off"/>
+    </div>
+    <div class="fg">
+      <label class="fl">구분</label>
+      <select id="fi-cat">
+        <option value="대출">대출/부채</option>
+        <option value="공과금">공과금</option>
+        <option value="구독">월 구독료</option>
+        <option value="교통">교통비(유류대)</option>
+        <option value="저축">저축</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">메모 (카드사 등)</label>
+      <input type="text" id="fi-note" placeholder="ex) 신한카드"/>
+    </div>
+    <div class="fg">
+      <label class="fl">매월 출금일 (일, 없으면 비워두기)</label>
+      <input type="number" id="fi-payday" placeholder="25" min="1" max="31" style="font-size:13px"/>
+    </div>
+    <input type="hidden" id="fi-edit-id"/>
+    <div style="display:flex;gap:8px">
+      <button class="save-url" onclick="saveAddFixed()" id="fi-save-btn" style="flex:1">추가</button>
+      <button class="save-url" onclick="closeAddFixed()" style="flex:1;background:var(--bg3);color:var(--text)">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 항목 액션 바텀시트 -->
+
+<div class="overlay" id="fixed-action-sheet" onclick="if(event.target===this)closeActionSheet()">
+  <div class="settings-sheet" style="padding:16px 0 32px">
+    <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="action-title">항목명</div>
+    <button onclick="actionEdit()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:18px">✏️</span> 수정
+    </button>
+    <button onclick="actionMoveUp()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:18px">⬆️</span> 위로 이동
+    </button>
+    <button onclick="actionMoveDown()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--text);display:flex;align-items:center;gap:12px;border-bottom:0.5px solid var(--border)">
+      <span style="font-size:18px">⬇️</span> 아래로 이동
+    </button>
+    <button onclick="actionDelete()" style="width:100%;padding:14px 20px;background:none;border:none;text-align:left;font-size:15px;cursor:pointer;color:var(--red);display:flex;align-items:center;gap:12px">
+      <span style="font-size:18px">🗑️</span> 삭제
+    </button>
+  </div>
+</div>
+
 </body>
 </html>
