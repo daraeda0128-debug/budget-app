@@ -89,6 +89,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;
 .sync-btn{font-size:12px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;
   background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px}
 .sync-btn.syncing{color:var(--blue)}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.spinning{display:inline-block;animation:spin 0.8s linear infinite}
 .tab-bar{display:flex;padding:0 8px;border-bottom:1px solid var(--border);margin-top:8px;
   background:var(--bg);position:sticky;top:0;z-index:100;overflow-x:auto}
 .tab{flex:1;padding:12px 4px;font-size:12px;text-align:center;cursor:pointer;white-space:nowrap;
@@ -267,10 +269,15 @@ input:focus,select:focus{border-color:var(--blue)}
 <!-- Top Bar -->
 <div class="topbar">
   <span class="topbar-title">💰 진수·미나 가계부</span>
-  <button class="sync-btn" onclick="openSettings()">
-    <span class="conn-dot loading" id="conn-dot"></span>
-    <span id="conn-label">설정</span>
-  </button>
+  <div style="display:flex;gap:6px">
+    <button class="sync-btn" onclick="refreshData()" id="refresh-btn" title="새로고침">
+      <span id="refresh-icon">🔄</span>
+    </button>
+    <button class="sync-btn" onclick="openSettings()">
+      <span class="conn-dot loading" id="conn-dot"></span>
+      <span id="conn-label">설정</span>
+    </button>
+  </div>
 </div>
 
 <!-- Tab Bar -->
@@ -1545,6 +1552,20 @@ function updateConnStatus(){
   }catch(e){}
   dot.className = 'conn-dot err';
   lbl.textContent = '연결 오류';
+}
+
+// ── 새로고침 ────────────────────────────────────────────────
+async function refreshData(){
+  const icon = document.getElementById('refresh-icon');
+  icon.classList.add('spinning');
+  try{
+    await initFromSheet();
+    toast('✅ 새로고침 완료');
+  }catch(e){
+    toast('⚠️ 새로고침 실패');
+    console.error(e);
+  }
+  setTimeout(()=>icon.classList.remove('spinning'), 600);
 }
 
 // ── Toast ──────────────────────────────────────────────────
