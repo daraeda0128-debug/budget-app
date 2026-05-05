@@ -314,13 +314,13 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   </div>
   <div class="carry-bar">
     <span class="carry-label">이월 잔액</span>
-    <span class="carry-value" id="d-carry" class="blur-amt">--</span>
+    <span class="carry-value blur-amt" id="d-carry">--</span>
   </div>
   <div class="stat-grid">
-    <div class="stat"><div class="stat-label">수입</div><div class="stat-value g" id="d-income" class="blur-amt">--</div></div>
-    <div class="stat"><div class="stat-label">지출 합계</div><div class="stat-value r" id="d-exp" class="blur-amt">--</div></div>
-    <div class="stat"><div class="stat-label">고정지출</div><div class="stat-value" id="d-fixed" class="blur-amt" style="font-size:16px">--</div></div>
-    <div class="stat"><div class="stat-label">잔액 예상</div><div class="stat-value b" id="d-bal" class="blur-amt">--</div></div>
+    <div class="stat"><div class="stat-label">수입</div><div class="stat-value g blur-amt" id="d-income">--</div></div>
+    <div class="stat"><div class="stat-label">지출 합계</div><div class="stat-value r blur-amt" id="d-exp">--</div></div>
+    <div class="stat"><div class="stat-label">고정지출</div><div class="stat-value blur-amt" id="d-fixed" style="font-size:16px">--</div></div>
+    <div class="stat"><div class="stat-label">잔액 예상</div><div class="stat-value b blur-amt" id="d-bal">--</div></div>
   </div>
   <div class="sec">카테고리별 지출</div>
   <div class="bars" id="cat-bars"></div>
@@ -518,9 +518,9 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
     <select id="sim-to" style="flex:1;font-size:13px" onchange="renderSim()"></select>
   </div>
   <div class="stat-grid" style="margin-bottom:12px">
-    <div class="stat"><div class="stat-label">기간 총 수입</div><div class="stat-value g" id="sim-total-in" class="blur-amt" style="font-size:16px">--</div></div>
-    <div class="stat"><div class="stat-label">기간 총 지출</div><div class="stat-value r" id="sim-total-out" class="blur-amt" style="font-size:16px">--</div></div>
-    <div class="stat" style="grid-column:1/-1"><div class="stat-label">기말 예상 잔액</div><div class="stat-value b" id="sim-final-bal" class="blur-amt" style="font-size:20px">--</div></div>
+    <div class="stat"><div class="stat-label">기간 총 수입</div><div class="stat-value g blur-amt" id="sim-total-in" style="font-size:16px">--</div></div>
+    <div class="stat"><div class="stat-label">기간 총 지출</div><div class="stat-value r blur-amt" id="sim-total-out" style="font-size:16px">--</div></div>
+    <div class="stat" style="grid-column:1/-1"><div class="stat-label">기말 예상 잔액</div><div class="stat-value b blur-amt" id="sim-final-bal" style="font-size:20px">--</div></div>
   </div>
   <div class="sec">월별 잔액 추이</div>
   <div style="padding:0 16px 8px;overflow-x:auto">
