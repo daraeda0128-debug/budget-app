@@ -46,8 +46,8 @@ const db = firebase.database();
 }
 @media(prefers-color-scheme:dark){
   :root{
-    --border:#3a3a37;--text:#f0f0ee;--text2:#a0a09a;--text3:#666;
-    --bg:#1a1a18;--bg2:#2c2c2a;--bg3:#3a3a37;
+    --border:#2e2e2c;--text:#f0f0ee;--text2:#a0a09a;--text3:#666;
+    --bg:#1a1a18;--bg2:#242422;--bg3:#2e2e2c;
   }
 }
 /* PIN 잠금 */
@@ -93,14 +93,6 @@ background:var(–bg2);color:var(–text2);cursor:pointer;display:flex;align-ite
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .spinning{display:inline-block;animation:spin 0.8s linear infinite}
 
-/* 플로팅 추가 버튼 (FAB) */
-.fab{position:fixed;bottom:24px;right:20px;width:56px;height:56px;border-radius:50%;
-background:var(–blue);color:#fff;border:none;font-size:28px;cursor:pointer;
-box-shadow:0 4px 12px rgba(24,95,165,.4);z-index:50;display:none;
-align-items:center;justify-content:center;transition:transform .15s, box-shadow .15s;
-font-family:inherit;font-weight:300;line-height:1}
-.fab.show{display:flex}
-.fab:active{transform:scale(0.92);box-shadow:0 2px 6px rgba(24,95,165,.3)}
 .tab-bar{display:flex;padding:0 8px;border-bottom:1px solid var(–border);margin-top:8px;
 background:var(–bg);position:sticky;top:0;z-index:100;overflow-x:auto}
 .tab{flex:1;padding:12px 4px;font-size:12px;text-align:center;cursor:pointer;white-space:nowrap;
@@ -848,9 +840,6 @@ function show(id){
   document.getElementById(id).classList.add('on');
   const tabs=['dash','add','fixed','history','import','sim'];
   document.querySelectorAll('.tab')[tabs.indexOf(id)].classList.add('on');
-  // FAB는 대시보드에서만 표시
-  const fab = document.getElementById('fab-add');
-  if(fab) fab.classList.toggle('show', id === 'dash');
   if(id==='dash')    renderDash();
   if(id==='fixed')   renderFixed();
   if(id==='history') renderHistory();
@@ -2036,10 +2025,6 @@ function blurAmt(str){
 // PIN 초기화 — 앱 시작 전 PIN 확인
 initPin();
 </script>
-
-<!-- 플로팅 추가 버튼 -->
-
-<button class="fab show" id="fab-add" onclick="show('add')" aria-label="추가">+</button>
 
 </div><!-- #app -->
 <!-- 시뮬레이션 이벤트 추가 모달 -->
