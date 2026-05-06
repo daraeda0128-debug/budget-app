@@ -521,6 +521,9 @@ const S = {
   pending: [],
 };
 
+// 수정 중인 원본 정보 (수정 완료 시 삭제할 대상)
+let _editingTx = null;
+
 // ── 카테고리 색상/아이콘 ───────────────────────────────────
 const CAT_COLOR = {
   '식비':'#1D9E75','카페':'#D85A30','쇼핑':'#378ADD','교통':'#EF9F27',
@@ -590,9 +593,24 @@ async function doAdd(){
   const btn=document.getElementById('add-btn');
   btn.textContent='저장 중...';btn.disabled=true;
   try{
+    // 수정 모드: 원본 삭제 후 새로 저장
+    if(_editingTx){
+      const orig = _editingTx;
+      // 캐시에서 원본 제거
+      if(S.txCache[orig.ym]){
+        S.txCache[orig.ym] = S.txCache[orig.ym].filter(t =>
+          !(t.date===orig.date && t.name===orig.name && t.amt===orig.amt)
+        );
+      }
+      // Firebase에서 원본 제거
+      if(orig.fbKey){
+        console.log('🗑️ doAdd에서 원본 삭제:', orig); await db.ref(`tx/${orig.ym}/${orig.fbKey}`).remove().catch(e=>console.error('원본 삭제 실패:', e));
+      }
+      _editingTx = null;
+    }
     await postToSheet('addTransaction',{...tx,amount:tx.amt});
     toast('✅ 저장되었습니다');
-  }catch(e){ toast('⚠️ 저장 실패'); }
+  }catch(e){ toast('⚠️ 저장 실패'); console.error(e); }
   btn.textContent='추가하기';btn.disabled=false;
   document.getElementById('add-cancel-btn').style.display='none';
   document.getElementById('f-amt').value='';
@@ -813,6 +831,15 @@ const FIXED_LIVING = [];
 
 // ── Screen & Tab ───────────────────────────────────────────
 function show(id){
+  console.log('🔄 show 호출:', id, '_editingTx:', _editingTx);
+  // 수정 모드 중 다른 탭 이동 시 자동 취소 (원본 보존)
+  if(_editingTx && id !== 'add'){
+    document.getElementById('add-btn').textContent = '추가하기';
+    document.getElementById('add-cancel-btn').style.display = 'none';
+    document.getElementById('f-amt').value = '';
+    document.getElementById('f-memo').value = '';
+    _editingTx = null;
+  }
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.getElementById(id).classList.add('on');
@@ -1012,6 +1039,7 @@ function closeTxAction(){
 }
 
 function txActionEdit(){
+  console.log('✏️ txActionEdit 시작');
   const t = (S._recentCache||[])[_txActionIdx];
   if(!t) return;
   closeTxAction();
@@ -1027,15 +1055,16 @@ function txActionEdit(){
   // 수정 모드 UI
   document.getElementById('add-btn').textContent = '수정 완료';
   document.getElementById('add-cancel-btn').style.display = 'block';
-  // 원본 삭제
-  const ym = ymKey();
-  S.txCache[ym] = (S.txCache[ym]||[]).filter(tx => !(tx.date===t.date && tx.name===t.name && tx.amt===t.amt));
-  if(t.fbKey) db.ref(`tx/${ym}/${t.fbKey}`).remove().catch(()=>{});
+  // 원본은 삭제하지 않고 백업만 (완료 시점에 삭제)
+  _editingTx = {
+    date: t.date, name: t.name, amt: t.amt,
+    fbKey: t.fbKey, ym: t.date.slice(0,7),
+  };
   toast('수정 후 완료 버튼을 눌러주세요');
 }
 
 function cancelEdit(){
-  // 수정 모드 UI 초기화
+  // 수정 모드 UI 초기화 — 원본은 그대로 유지됨
   document.getElementById('add-btn').textContent = '추가하기';
   document.getElementById('add-cancel-btn').style.display = 'none';
   document.getElementById('f-amt').value = '';
@@ -1044,8 +1073,7 @@ function cancelEdit(){
   setType('expense');
   setWho('j');
   setPayMethod('card');
-  // Firebase에서 다시 로드해서 원상복구
-  fetchFromSheet();
+  _editingTx = null;
   show('dash');
   toast('수정이 취소되었습니다');
 }
@@ -1057,7 +1085,7 @@ async function txActionDelete(){
   closeTxAction();
   const ym = ymKey();
   S.txCache[ym] = (S.txCache[ym]||[]).filter(tx => !(tx.date===t.date && tx.name===t.name && tx.amt===t.amt));
-  if(t.fbKey) await db.ref(`tx/${ym}/${t.fbKey}`).remove().catch(()=>{});
+  if(t.fbKey){ console.log('🗑️ txActionDelete에서 삭제:', t); await db.ref(`tx/${ym}/${t.fbKey}`).remove().catch(()=>{}); }
   renderDash();
   toast('삭제되었습니다');
 }
