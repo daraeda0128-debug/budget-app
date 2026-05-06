@@ -362,7 +362,7 @@ input:focus,select:focus{border-color:var(--blue)}
       <select id="f-cat">
         <option>식비</option><option>카페</option><option>쇼핑</option>
         <option>생필품:잡화</option><option>생필품:식재료</option>
-        <option>교통</option><option>의료</option><option>문화/여가</option>
+        <option>교통</option><option>의료</option><option>자기계발</option><option>문화/여가</option>
         <option>경조사</option><option>저축/투자</option><option>급여</option>
         <option>상여</option><option>세금</option><option>보험료</option>
         <option>대납</option><option>정산</option><option>카드대금</option><option>기타</option>
@@ -526,14 +526,14 @@ const CAT_COLOR = {
   '식비':'#1D9E75','카페':'#D85A30','쇼핑':'#378ADD','교통':'#EF9F27',
   '의료':'#7F77DD','문화/여가':'#D4537E','경조사':'#D85A30',
   '저축/투자':'#0F6E56','기타':'#888780','급여':'#1D9E75','상여':'#1D9E75',
-  '세금':'#5F5E5A','보험료':'#7F77DD',
+  '세금':'#5F5E5A','보험료':'#7F77DD','자기계발':'#3D7BC4',
   '생필품:잡화':'#A86CC1','생필품:식재료':'#52A85B',
   '대납':'#888780','정산':'#888780','카드대금':'#888780',
 };
 const ICONS = {
   '식비':'🍚','카페':'☕','쇼핑':'🛍','교통':'🚗','의료':'💊',
   '문화/여가':'🎬','경조사':'🎁','저축/투자':'📦','급여':'💰','상여':'🎉','기타':'📌',
-  '세금':'🏛️','보험료':'🛡️',
+  '세금':'🏛️','보험료':'🛡️','자기계발':'📚',
   '생필품:잡화':'🧺','생필품:식재료':'🥬',
   '대납':'🔄','정산':'↩️','카드대금':'💳',
 };
@@ -915,7 +915,10 @@ function renderDash(){
   // 2) 최근 내역 — 원단위 표시 + 수정/삭제 버튼
   const recent = [...txs].sort((a,b)=>{
     const d = b.date.localeCompare(a.date);
-    return d !== 0 ? d : (b.ts||0) - (a.ts||0);
+    if(d !== 0) return d;
+    // 같은 날짜: ts 우선, 없으면 fbKey(시간순) 사용
+    if(a.ts && b.ts) return b.ts - a.ts;
+    return (b.fbKey||'').localeCompare(a.fbKey||'');
   }).slice(0,20);
   // 전역 캐시에 현재 정렬 순서 저장 (openTxAction/openTxDetail에서 참조)
   S._recentCache = recent;
@@ -1667,7 +1670,9 @@ function renderHistory(){
   if(H.sort==='amt') txs.sort((a,b)=>b.amt-a.amt);
   else txs.sort((a,b)=>{
     const d = b.date.localeCompare(a.date);
-    return d !== 0 ? d : (b.ts||0) - (a.ts||0);
+    if(d !== 0) return d;
+    if(a.ts && b.ts) return b.ts - a.ts;
+    return (b.fbKey||'').localeCompare(a.fbKey||'');
   });
 
   // 요약
