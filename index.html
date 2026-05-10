@@ -1882,7 +1882,8 @@ function renderSim(){
   const expanded=expandEvents(events,fromYm,toYm);
 
   // 수입 기준 선택
-  const incomeBase = document.getElementById('sim-income-base')?.value || 'avg12';
+  const incomeBaseEl = document.getElementById('sim-income-base');
+  const incomeBase = incomeBaseEl ? incomeBaseEl.value : 'avg12';
   let salaryTotal;
   if(incomeBase === 'setting'){
     salaryTotal = S.salaryJ + S.salaryM;
