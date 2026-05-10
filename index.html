@@ -2095,6 +2095,9 @@ function blurAmt(str){
 }
 
 // PIN 초기화 — 앱 시작 전 PIN 확인
+// 모든 모달/오버레이를 닫힌 상태로 시작
+document.querySelectorAll('.overlay').forEach(o => o.classList.remove('on'));
+
 initPin();
 </script>
 
