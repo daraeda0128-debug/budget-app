@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ko">
 <head>
 <meta charset="UTF-8"/>
@@ -76,154 +75,154 @@ const db = firebase.database();
 .blur-mode #h-exp,
 .blur-mode #td-amt,
 .blur-mode .bar-val{
-filter:blur(6px);
-user-select:none;
-pointer-events:none;
+  filter:blur(6px);
+  user-select:none;
+  pointer-events:none;
 }
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 
-body{font-family:-apple-system,BlinkMacSystemFont,‘Noto Sans KR’,sans-serif;
-background:var(–bg);color:var(–text);font-size:15px;max-width:430px;margin:0 auto;
-min-height:100vh;position:relative}
+body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;
+  background:var(--bg);color:var(--text);font-size:15px;max-width:430px;margin:0 auto;
+  min-height:100vh;position:relative}
 .topbar{padding:16px 16px 0;display:flex;align-items:center;justify-content:space-between}
 .topbar-title{font-size:17px;font-weight:600}
-.sync-btn{font-size:12px;padding:6px 12px;border:1px solid var(–border);border-radius:20px;
-background:var(–bg2);color:var(–text2);cursor:pointer;display:flex;align-items:center;gap:4px}
-.sync-btn.syncing{color:var(–blue)}
+.sync-btn{font-size:12px;padding:6px 12px;border:1px solid var(--border);border-radius:20px;
+  background:var(--bg2);color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:4px}
+.sync-btn.syncing{color:var(--blue)}
 @keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 .spinning{display:inline-block;animation:spin 0.8s linear infinite}
 
-.tab-bar{display:flex;padding:0 8px;border-bottom:1px solid var(–border);margin-top:8px;
-background:var(–bg);position:sticky;top:0;z-index:100;overflow-x:auto}
+.tab-bar{display:flex;padding:0 8px;border-bottom:1px solid var(--border);margin-top:8px;
+  background:var(--bg);position:sticky;top:0;z-index:100;overflow-x:auto}
 .tab{flex:1;padding:12px 4px;font-size:12px;text-align:center;cursor:pointer;white-space:nowrap;
-color:var(–text2);border-bottom:2px solid transparent;transition:.2s;min-width:60px}
-.tab.on{color:var(–text);border-bottom-color:var(–text);font-weight:600}
+  color:var(--text2);border-bottom:2px solid transparent;transition:.2s;min-width:60px}
+.tab.on{color:var(--text);border-bottom-color:var(--text);font-weight:600}
 .screen{display:none;padding-bottom:80px}.screen.on{display:block}
 
 /* month nav */
 .month-nav{display:flex;align-items:center;justify-content:space-between;padding:16px}
 .month-label{font-size:20px;font-weight:700}
-.nav-btn{width:36px;height:36px;border:1px solid var(–border);border-radius:50%;
-background:var(–bg2);cursor:pointer;font-size:18px;color:var(–text);
-display:flex;align-items:center;justify-content:center}
+.nav-btn{width:36px;height:36px;border:1px solid var(--border);border-radius:50%;
+  background:var(--bg2);cursor:pointer;font-size:18px;color:var(--text);
+  display:flex;align-items:center;justify-content:center}
 
 /* carry bar */
-.carry-bar{margin:0 16px 12px;background:var(–blue-light);border-radius:var(–radius);
-padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
-.carry-label{font-size:13px;color:var(–blue);font-weight:500}
-.carry-value{font-size:20px;font-weight:700;color:var(–blue)}
+.carry-bar{margin:0 16px 12px;background:var(--blue-light);border-radius:var(--radius);
+  padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.carry-label{font-size:13px;color:var(--blue);font-weight:500}
+.carry-value{font-size:20px;font-weight:700;color:var(--blue)}
 
 /* stat grid */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 4px}
-.stat{background:var(–bg2);border-radius:var(–radius-sm);padding:12px 14px}
-.stat-label{font-size:11px;color:var(–text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+.stat{background:var(--bg2);border-radius:var(--radius-sm);padding:12px 14px}
+.stat-label{font-size:11px;color:var(--text3);margin-bottom:4px;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
 .stat-value{font-size:19px;font-weight:700}
-.stat-value.g{color:var(–green)}.stat-value.r{color:var(–red)}.stat-value.b{color:var(–blue)}
+.stat-value.g{color:var(--green)}.stat-value.r{color:var(--red)}.stat-value.b{color:var(--blue)}
 
 /* section title */
-.sec{font-size:11px;font-weight:600;color:var(–text3);letter-spacing:.06em;
-text-transform:uppercase;padding:16px 16px 8px}
+.sec{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.06em;
+  text-transform:uppercase;padding:16px 16px 8px}
 
 /* card */
-.card{background:var(–bg);border:1px solid var(–border);border-radius:var(–radius);
-margin:0 16px 12px;overflow:hidden}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);
+  margin:0 16px 12px;overflow:hidden}
 
 /* category bars */
 .bars{padding:0 16px 4px}
 .bar-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.bar-label{font-size:12px;color:var(–text2);width:56px;text-align:right;flex-shrink:0}
-.bar-track{flex:1;background:var(–bg3);border-radius:4px;height:20px;position:relative;overflow:hidden}
+.bar-label{font-size:12px;color:var(--text2);width:56px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;background:var(--bg3);border-radius:4px;height:20px;position:relative;overflow:hidden}
 .bar-fill{height:100%;border-radius:4px;transition:width .4s ease}
 .bar-val{position:absolute;right:6px;top:50%;transform:translateY(-50%);
-font-size:11px;font-weight:600;white-space:nowrap;color:var(–text2)}
+  font-size:11px;font-weight:600;white-space:nowrap;color:var(--text2)}
 
 /* tx item */
 .tx-item{display:flex;align-items:center;gap:12px;padding:12px 16px;
-border-bottom:1px solid var(–border)}
+  border-bottom:1px solid var(--border)}
 .tx-item:last-child{border-bottom:none}
 .tx-ico{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;
-justify-content:center;font-size:16px;flex-shrink:0}
-.tx-ico.e{background:var(–red-light)}.tx-ico.i{background:var(–green-light)}.tx-ico.f{background:var(–blue-light)}
+  justify-content:center;font-size:16px;flex-shrink:0}
+.tx-ico.e{background:var(--red-light)}.tx-ico.i{background:var(--green-light)}.tx-ico.f{background:var(--blue-light)}
 .tx-body{flex:1;min-width:0}
 .tx-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tx-sub{font-size:12px;color:var(–text3);margin-top:2px}
+.tx-sub{font-size:12px;color:var(--text3);margin-top:2px}
 .tx-amt{font-size:14px;font-weight:700;flex-shrink:0}
-.tx-amt.e{color:var(–red)}.tx-amt.i{color:var(–green)}
+.tx-amt.e{color:var(--red)}.tx-amt.i{color:var(--green)}
 
 /* badge */
 .bdg{display:inline-block;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:4px;font-weight:500}
-.bdg.j{background:var(–green-light);color:var(–green)}
-.bdg.m{background:var(–pink-light);color:var(–pink)}
-.bdg.b{background:var(–gray-light);color:var(–gray)}
+.bdg.j{background:var(--green-light);color:var(--green)}
+.bdg.m{background:var(--pink-light);color:var(--pink)}
+.bdg.b{background:var(--gray-light);color:var(--gray)}
 
 /* ADD form */
 .form-wrap{padding:12px 16px}
 .fg{margin-bottom:12px}
-.fl{font-size:12px;color:var(–text2);margin-bottom:6px;display:block;font-weight:500}
+.fl{font-size:12px;color:var(--text2);margin-bottom:6px;display:block;font-weight:500}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-input,select{width:100%;padding:11px 12px;border:1px solid var(–border);border-radius:var(–radius-sm);
-font-size:14px;background:var(–bg);color:var(–text);outline:none;font-family:inherit;
-box-sizing:border-box;-webkit-appearance:none;appearance:none}
-input[type=“date”]{padding:11px 8px;-webkit-appearance:none;appearance:none}
-select{background-image:url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘12’ height=‘8’ viewBox=‘0 0 12 8’%3E%3Cpath fill=’%23999’ d=‘M6 8L0 0h12z’/%3E%3C/svg%3E”);background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
-input:focus,select:focus{border-color:var(–blue)}
+input,select{width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  font-size:14px;background:var(--bg);color:var(--text);outline:none;font-family:inherit;
+  box-sizing:border-box;-webkit-appearance:none;appearance:none}
+input[type="date"]{padding:11px 8px;-webkit-appearance:none;appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23999' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
+input:focus,select:focus{border-color:var(--blue)}
 .seg{display:flex;gap:6px}
-.seg-btn{flex:1;padding:10px;border:1px solid var(–border);border-radius:var(–radius-sm);
-cursor:pointer;font-size:14px;background:var(–bg2);color:var(–text2);transition:.15s;font-family:inherit}
-.seg-btn.on-e{background:var(–red-light);color:var(–red);border-color:var(–red)}
-.seg-btn.on-i{background:var(–green-light);color:var(–green);border-color:var(–green)}
-.seg-btn.on-j{background:var(–green-light);color:var(–green);border-color:var(–green)}
-.seg-btn.on-m{background:var(–pink-light);color:var(–pink);border-color:var(–pink)}
-.seg-btn.on-b{background:var(–gray-light);color:var(–gray);border-color:var(–gray)}
-.seg-btn.on-card{background:var(–blue-light);color:var(–blue);border-color:var(–blue)}
-.seg-btn.on-cash{background:var(–amber-light);color:var(–amber);border-color:var(–amber)}
-.submit{width:100%;padding:15px;background:var(–text);color:var(–bg);border:none;
-border-radius:var(–radius);font-size:16px;font-weight:600;cursor:pointer;margin-top:4px;font-family:inherit}
+.seg-btn{flex:1;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;font-size:14px;background:var(--bg2);color:var(--text2);transition:.15s;font-family:inherit}
+.seg-btn.on-e{background:var(--red-light);color:var(--red);border-color:var(--red)}
+.seg-btn.on-i{background:var(--green-light);color:var(--green);border-color:var(--green)}
+.seg-btn.on-j{background:var(--green-light);color:var(--green);border-color:var(--green)}
+.seg-btn.on-m{background:var(--pink-light);color:var(--pink);border-color:var(--pink)}
+.seg-btn.on-b{background:var(--gray-light);color:var(--gray);border-color:var(--gray)}
+.seg-btn.on-card{background:var(--blue-light);color:var(--blue);border-color:var(--blue)}
+.seg-btn.on-cash{background:var(--amber-light);color:var(--amber);border-color:var(--amber)}
+.submit{width:100%;padding:15px;background:var(--text);color:var(--bg);border:none;
+  border-radius:var(--radius);font-size:16px;font-weight:600;cursor:pointer;margin-top:4px;font-family:inherit}
 .submit:active{opacity:.85}
 
 /* IMPORT */
-.upload-zone{margin:0 16px 12px;border:1.5px dashed var(–border);border-radius:var(–radius);
-padding:32px 16px;text-align:center;cursor:pointer;color:var(–text2)}
-.upload-zone:hover{background:var(–bg2);border-color:var(–blue)}
+.upload-zone{margin:0 16px 12px;border:1.5px dashed var(--border);border-radius:var(--radius);
+  padding:32px 16px;text-align:center;cursor:pointer;color:var(--text2)}
+.upload-zone:hover{background:var(--bg2);border-color:var(--blue)}
 .upload-icon{font-size:32px;margin-bottom:8px}
-.upload-title{font-size:16px;font-weight:600;color:var(–text);margin-bottom:6px}
-.upload-desc{font-size:13px;line-height:1.6;color:var(–text2)}
-.guide-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(–border)}
+.upload-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
+.upload-desc{font-size:13px;line-height:1.6;color:var(--text2)}
+.guide-item{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)}
 .guide-item:last-child{border-bottom:none}
 .guide-app{font-size:14px;font-weight:500}
-.guide-how{font-size:12px;color:var(–text3)}
+.guide-how{font-size:12px;color:var(--text3)}
 .preview-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;
-border-bottom:1px solid var(–border);background:var(–amber-light)}
-.preview-title{font-size:13px;font-weight:600;color:var(–amber)}
-.preview-count{font-size:12px;color:var(–amber)}
-.import-confirm{margin:12px 16px 0;padding:14px;background:var(–green);color:#fff;
-border:none;border-radius:var(–radius);font-size:15px;font-weight:600;cursor:pointer;width:calc(100% - 32px)}
+  border-bottom:1px solid var(--border);background:var(--amber-light)}
+.preview-title{font-size:13px;font-weight:600;color:var(--amber)}
+.preview-count{font-size:12px;color:var(--amber)}
+.import-confirm{margin:12px 16px 0;padding:14px;background:var(--green);color:#fff;
+  border:none;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer;width:calc(100% - 32px)}
 
 /* FIXED */
 .fixed-sum{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 4px}
-.fixed-item{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(–border)}
+.fixed-item{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border)}
 .fixed-item:last-child{border-bottom:none}
 .fixed-name{font-size:13px}
-.fixed-note{font-size:11px;color:var(–text3);margin-top:1px}
-.fixed-amt{font-size:13px;font-weight:600;color:var(–red);flex-shrink:0}
-.h-filter-btn{font-size:12px;padding:5px 10px;border:1px solid var(–border);border-radius:20px;
-background:var(–bg2);color:var(–text2);cursor:pointer;white-space:nowrap;font-family:inherit;transition:.15s}
-.h-filter-btn.on{background:var(–text);color:var(–bg);border-color:var(–text)}
+.fixed-note{font-size:11px;color:var(--text3);margin-top:1px}
+.fixed-amt{font-size:13px;font-weight:600;color:var(--red);flex-shrink:0}
+.h-filter-btn{font-size:12px;padding:5px 10px;border:1px solid var(--border);border-radius:20px;
+  background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:inherit;transition:.15s}
+.h-filter-btn.on{background:var(--text);color:var(--bg);border-color:var(--text)}
 
 /* SETTINGS overlay */
-.overlay{display:none !important;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
+.overlay{display:none !important;position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
 .overlay.on{display:flex !important}
-.settings-sheet{background:var(–bg);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%}
+.settings-sheet{background:var(--bg);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%}
 .settings-title{font-size:17px;font-weight:700;margin-bottom:20px}
 .settings-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .settings-label{flex:1;font-size:14px}
 .url-input{flex:2;font-size:12px}
-.save-url{padding:10px 16px;background:var(–blue);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
+.save-url{padding:10px 16px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
 
 /* toast */
 .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);
-background:var(–text);color:var(–bg);padding:10px 20px;border-radius:20px;font-size:14px;
-opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
+  background:var(--text);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:14px;
+  opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 /* spinner */
@@ -232,14 +231,12 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 
 /* connection status */
 .conn-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px}
-.conn-dot.ok{background:var(–green)}.conn-dot.err{background:var(–red)}.conn-dot.loading{background:var(–amber)}
+.conn-dot.ok{background:var(--green)}.conn-dot.err{background:var(--red)}.conn-dot.loading{background:var(--amber)}
 </style>
-
 </head>
 <body>
 
 <!-- PIN 잠금 화면 -->
-
 <div class="pin-screen" id="pin-screen">
   <div class="pin-logo">💰</div>
   <div class="pin-title" id="pin-title">진수·미나 가계부</div>
@@ -271,7 +268,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 <div id="app" style="display:none">
 
 <!-- Top Bar -->
-
 <div class="topbar">
   <span class="topbar-title">💰 진수·미나 가계부</span>
   <div style="display:flex;gap:6px">
@@ -286,7 +282,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- Tab Bar -->
-
 <div class="tab-bar">
   <div class="tab on" onclick="show('dash')">대시보드</div>
   <div class="tab" onclick="show('add')">추가</div>
@@ -297,7 +292,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== DASHBOARD ===== -->
-
 <div id="dash" class="screen on">
   <div class="month-nav">
     <button class="nav-btn" onclick="chMonth(-1)">‹</button>
@@ -322,7 +316,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== ADD ===== -->
-
 <div id="add" class="screen">
   <div class="form-wrap">
     <div class="fg">
@@ -363,37 +356,33 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
       </div>
     </div>
 
-```
-<!-- 카테고리 -->
-<div class="fg">
-  <label class="fl">카테고리</label>
-  <select id="f-cat">
-    <option>식비</option><option>카페</option><option>쇼핑</option>
-    <option>생필품:잡화</option><option>생필품:식재료</option>
-    <option>교통</option><option>의료</option><option>자기계발</option><option>문화/여가</option>
-    <option>경조사</option><option>저축/투자</option><option>급여</option>
-    <option>상여</option><option>세금</option><option>보험료</option>
-    <option>대납</option><option>정산</option><option>카드대금</option><option>기타</option>
-  </select>
-</div>
+    <!-- 카테고리 -->
+    <div class="fg">
+      <label class="fl">카테고리</label>
+      <select id="f-cat">
+        <option>식비</option><option>카페</option><option>쇼핑</option>
+        <option>생필품:잡화</option><option>생필품:식재료</option>
+        <option>교통</option><option>의료</option><option>자기계발</option><option>문화/여가</option>
+        <option>경조사</option><option>저축/투자</option><option>급여</option>
+        <option>상여</option><option>세금</option><option>보험료</option>
+        <option>대납</option><option>정산</option><option>카드대금</option><option>기타</option>
+      </select>
+    </div>
 
-<!-- 메모 -->
-<div class="fg">
-  <label class="fl">메모 (선택)</label>
-  <input type="text" id="f-memo" placeholder="어디서 썼는지..."/>
-</div>
+    <!-- 메모 -->
+    <div class="fg">
+      <label class="fl">메모 (선택)</label>
+      <input type="text" id="f-memo" placeholder="어디서 썼는지..."/>
+    </div>
 
-<div style="display:flex;gap:8px">
-  <button class="submit" id="add-btn" onclick="doAdd()" style="flex:1">추가하기</button>
-  <button id="add-cancel-btn" onclick="cancelEdit()" style="display:none;flex:1;padding:15px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:16px;cursor:pointer;font-family:inherit">취소</button>
-</div>
-```
-
+    <div style="display:flex;gap:8px">
+      <button class="submit" id="add-btn" onclick="doAdd()" style="flex:1">추가하기</button>
+      <button id="add-cancel-btn" onclick="cancelEdit()" style="display:none;flex:1;padding:15px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:16px;cursor:pointer;font-family:inherit">취소</button>
+    </div>
   </div>
 </div>
 
 <!-- ===== HISTORY ===== -->
-
 <div id="history" class="screen">
   <!-- 월 선택 -->
   <div class="month-nav">
@@ -403,14 +392,12 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   </div>
 
   <!-- 요약 -->
-
   <div class="stat-grid" style="margin-bottom:4px">
     <div class="stat"><div class="stat-label">수입</div><div class="stat-value g" id="h-income">--</div></div>
     <div class="stat"><div class="stat-label">지출</div><div class="stat-value r" id="h-exp">--</div></div>
   </div>
 
   <!-- 필터 -->
-
   <div style="padding:8px 16px;display:flex;gap:6px;flex-wrap:wrap">
     <!-- 수입/지출 필터 -->
     <div style="display:flex;gap:4px">
@@ -426,7 +413,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   </div>
 
   <!-- 누가 필터 -->
-
   <div style="padding:0 16px 8px;display:flex;gap:4px">
     <button class="h-filter-btn on" data-who="all" onclick="setHistoryWho('all')">전체</button>
     <button class="h-filter-btn"    data-who="j"   onclick="setHistoryWho('j')">진수</button>
@@ -435,11 +421,9 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   </div>
 
   <!-- 카테고리 필터 (가로 스크롤) -->
-
   <div style="padding:0 16px 8px;overflow-x:auto;white-space:nowrap;display:flex;gap:6px" id="h-cat-filters"></div>
 
   <!-- 검색 -->
-
   <div style="padding:0 16px 8px">
     <input type="text" id="h-search" placeholder="🔍 이름으로 검색..."
       oninput="renderHistory()"
@@ -447,12 +431,10 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
   </div>
 
   <!-- 내역 목록 -->
-
   <div class="card" id="h-list"></div>
 </div>
 
 <!-- ===== IMPORT ===== -->
-
 <div id="import" class="screen">
   <div class="sec">CSV 파일 가져오기</div>
   <div class="upload-zone" onclick="document.getElementById('csv-file').click()">
@@ -482,7 +464,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== FIXED ===== -->
-
 <div id="fixed" class="screen">
   <div class="month-nav">
     <button class="nav-btn" onclick="chFixedMonth(-1)">‹</button>
@@ -502,7 +483,6 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== SIMULATION ===== -->
-
 <div id="sim" class="screen">
   <div class="sec">현금흐름 시뮬레이션</div>
   <div style="padding:0 16px 8px;display:flex;gap:8px">
@@ -535,9 +515,7 @@ opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;z-index:300}
 </div>
 
 <!-- ===== CARD ===== -->
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
-
 <script>
 // ── State ──────────────────────────────────────────────────
 const S = {
@@ -2106,73 +2084,70 @@ initPin();
 <div class="overlay" id="sim-event-modal" onclick="if(event.target===this)closeSimEventModal()">
   <div class="settings-sheet" style="padding:24px 20px 36px">
 
-```
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-  <div style="font-size:17px;font-weight:700" id="sim-event-title">이벤트 추가</div>
-  <button onclick="closeSimEventModal()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
-</div>
-
-<!-- 이벤트명 + 금액 -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-  <div class="fg" style="margin:0">
-    <label class="fl">이벤트명</label>
-    <input type="text" id="se-name" placeholder="진수 휴가비"/>
-  </div>
-  <div class="fg" style="margin:0">
-    <label class="fl">금액 (원)</label>
-    <input type="text" inputmode="numeric" id="se-amt" placeholder="700,000" autocomplete="off"/>
-  </div>
-</div>
-
-<!-- 구분 + 반복방식 -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-  <div class="fg" style="margin:0">
-    <label class="fl">구분</label>
-    <div class="seg">
-      <button class="seg-btn on-i" id="se-inc" onclick="setSeType('income')">수입</button>
-      <button class="seg-btn" id="se-exp" onclick="setSeType('expense')">지출</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:17px;font-weight:700" id="sim-event-title">이벤트 추가</div>
+      <button onclick="closeSimEventModal()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
     </div>
-  </div>
-  <div class="fg" style="margin:0">
-    <label class="fl">반복 방식</label>
-    <div class="seg">
-      <button class="seg-btn on-j" id="se-once" onclick="setSeRepeat(false)">단발</button>
-      <button class="seg-btn" id="se-repeat" onclick="setSeRepeat(true)">매년</button>
+
+    <!-- 이벤트명 + 금액 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="fg" style="margin:0">
+        <label class="fl">이벤트명</label>
+        <input type="text" id="se-name" placeholder="진수 휴가비"/>
+      </div>
+      <div class="fg" style="margin:0">
+        <label class="fl">금액 (원)</label>
+        <input type="text" inputmode="numeric" id="se-amt" placeholder="700,000" autocomplete="off"/>
+      </div>
     </div>
-  </div>
-</div>
 
-<!-- 단발: 연월 -->
-<div id="se-once-wrap" class="fg">
-  <label class="fl">연월</label>
-  <input type="month" id="se-ym"/>
-</div>
-
-<!-- 매년 반복 -->
-<div id="se-repeat-wrap" style="display:none">
-  <div class="fg">
-    <label class="fl">발생 월</label>
-    <div id="se-month-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
-  </div>
-  <div class="fg">
-    <label class="fl">반복 기간</label>
-    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
-      <select id="se-start-year" style="font-size:13px"></select>
-      <span style="font-size:12px;color:var(--text3)">~</span>
-      <select id="se-end-year" style="font-size:13px"></select>
+    <!-- 구분 + 반복방식 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="fg" style="margin:0">
+        <label class="fl">구분</label>
+        <div class="seg">
+          <button class="seg-btn on-i" id="se-inc" onclick="setSeType('income')">수입</button>
+          <button class="seg-btn" id="se-exp" onclick="setSeType('expense')">지출</button>
+        </div>
+      </div>
+      <div class="fg" style="margin:0">
+        <label class="fl">반복 방식</label>
+        <div class="seg">
+          <button class="seg-btn on-j" id="se-once" onclick="setSeRepeat(false)">단발</button>
+          <button class="seg-btn" id="se-repeat" onclick="setSeRepeat(true)">매년</button>
+        </div>
+      </div>
     </div>
+
+    <!-- 단발: 연월 -->
+    <div id="se-once-wrap" class="fg">
+      <label class="fl">연월</label>
+      <input type="month" id="se-ym"/>
+    </div>
+
+    <!-- 매년 반복 -->
+    <div id="se-repeat-wrap" style="display:none">
+      <div class="fg">
+        <label class="fl">발생 월</label>
+        <div id="se-month-grid" style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">반복 기간</label>
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
+          <select id="se-start-year" style="font-size:13px"></select>
+          <span style="font-size:12px;color:var(--text3)">~</span>
+          <select id="se-end-year" style="font-size:13px"></select>
+        </div>
+      </div>
+    </div>
+
+    <input type="hidden" id="se-edit-id"/>
+    <button class="submit" onclick="saveSimEvent()" id="se-save-btn" style="margin-top:4px">추가</button>
   </div>
 </div>
 
-<input type="hidden" id="se-edit-id"/>
-<button class="submit" onclick="saveSimEvent()" id="se-save-btn" style="margin-top:4px">추가</button>
-```
-
-  </div>
-</div>
 
 <!-- 내역 상세 팝업 -->
-
 <div class="overlay" id="tx-detail-sheet" onclick="if(event.target===this)closeTxDetail()">
   <div class="settings-sheet" style="padding:0 0 32px">
     <!-- 헤더 -->
@@ -2187,45 +2162,42 @@ initPin();
       <button onclick="closeTxDetail()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer">×</button>
     </div>
 
-```
-<!-- 금액 -->
-<div id="td-amt-wrap" style="padding:18px 20px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-  <span style="font-size:13px;color:var(--text2)">금액</span>
-  <span id="td-amt" style="font-size:22px;font-weight:700"></span>
+    <!-- 금액 -->
+    <div id="td-amt-wrap" style="padding:18px 20px;border-bottom:0.5px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:var(--text2)">금액</span>
+      <span id="td-amt" style="font-size:22px;font-weight:700"></span>
+    </div>
+
+    <!-- 상세 정보 -->
+    <div style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;border-bottom:0.5px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">카테고리</span>
+        <span id="td-cat" style="font-size:13px;font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">결제수단</span>
+        <span id="td-pay" style="font-size:13px;font-weight:500"></span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">누가</span>
+        <span id="td-who" style="font-size:13px;font-weight:500"></span>
+      </div>
+      <div id="td-memo-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <span style="font-size:13px;color:var(--text2);flex-shrink:0">메모</span>
+        <span id="td-memo" style="font-size:13px;font-weight:500;text-align:right;color:var(--text)"></span>
+      </div>
+    </div>
+
+    <!-- 액션 버튼 -->
+    <div style="display:flex;gap:8px;padding:16px 20px 0">
+      <button id="td-edit-btn" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">✏️ 수정</button>
+      <button id="td-del-btn" style="flex:1;padding:12px;border:1px solid var(--red-light);border-radius:var(--radius-sm);background:var(--red-light);color:var(--red);font-size:14px;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
+    </div>
+  </div>
 </div>
 
-<!-- 상세 정보 -->
-<div style="padding:14px 20px;display:flex;flex-direction:column;gap:12px;border-bottom:0.5px solid var(--border)">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">카테고리</span>
-    <span id="td-cat" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">결제수단</span>
-    <span id="td-pay" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:13px;color:var(--text2)">누가</span>
-    <span id="td-who" style="font-size:13px;font-weight:500"></span>
-  </div>
-  <div id="td-memo-wrap" style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-    <span style="font-size:13px;color:var(--text2);flex-shrink:0">메모</span>
-    <span id="td-memo" style="font-size:13px;font-weight:500;text-align:right;color:var(--text)"></span>
-  </div>
-</div>
-
-<!-- 액션 버튼 -->
-<div style="display:flex;gap:8px;padding:16px 20px 0">
-  <button id="td-edit-btn" style="flex:1;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg2);color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">✏️ 수정</button>
-  <button id="td-del-btn" style="flex:1;padding:12px;border:1px solid var(--red-light);border-radius:var(--radius-sm);background:var(--red-light);color:var(--red);font-size:14px;cursor:pointer;font-family:inherit">🗑️ 삭제</button>
-</div>
-```
-
-  </div>
-</div>
 
 <!-- 내역 수정/삭제 액션 바텀시트 -->
-
 <div class="overlay" id="tx-action-sheet" onclick="if(event.target===this)closeTxAction()">
   <div class="settings-sheet" style="padding:16px 0 32px">
     <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="tx-action-name">내역명</div>
@@ -2291,10 +2263,10 @@ initPin();
 
 <div class="toast" id="toast"></div>
 
+
+
 <!-- ===== 모달 (앱 외부) ===== -->
-
 <!-- 고정지출 추가/수정 모달 -->
-
 <div class="overlay" id="fixed-modal" onclick="if(event.target===this)closeAddFixed()">
   <div class="settings-sheet">
     <div class="settings-title" id="fi-modal-title">고정지출 추가</div>
@@ -2333,7 +2305,6 @@ initPin();
 </div>
 
 <!-- 항목 액션 바텀시트 -->
-
 <div class="overlay" id="fixed-action-sheet" onclick="if(event.target===this)closeActionSheet()">
   <div class="settings-sheet" style="padding:16px 0 32px">
     <div style="padding:0 20px 14px;font-size:15px;font-weight:600;border-bottom:0.5px solid var(--border)" id="action-title">항목명</div>
@@ -2351,6 +2322,7 @@ initPin();
     </button>
   </div>
 </div>
+
 
 </body>
 </html>
