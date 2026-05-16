@@ -212,6 +212,14 @@ input:focus,select:focus{border-color:var(--blue)}
 /* SETTINGS overlay */
 .overlay{display:none !important;position:fixed !important;top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;background:rgba(0,0,0,.5);z-index:200;align-items:flex-end;justify-content:center}
 .overlay.on{display:flex !important}
+
+/* 토글 스위치 */
+.toggle-switch{position:relative;display:inline-block;width:48px;height:26px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#aaa;border-radius:26px;transition:.2s}
+.toggle-slider:before{content:"";position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle-switch input:checked + .toggle-slider{background:var(--blue)}
+.toggle-switch input:checked + .toggle-slider:before{transform:translateX(22px)}
 .settings-sheet{background:var(--bg);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%}
 .settings-title{font-size:17px;font-weight:700;margin-bottom:20px}
 .settings-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
@@ -836,6 +844,40 @@ function getCurrentFixedTotal(){
   return getTotalFixed(ymKey());
 }
 
+// 특정 월의 이월 잔액 계산 — 기준 월부터 누적
+function getCarryoverFor(targetYm){
+  // 기준 월은 carryover가 마지막으로 설정된 월 (없으면 현재)
+  const baseYm = localStorage.getItem('carryoverBaseYm') || ymKeyNow();
+  if(targetYm <= baseYm) return S.carryover;
+
+  // 기준 월부터 targetYm 직전까지 누적
+  let bal = S.carryover;
+  let [y, m] = baseYm.split('-').map(Number);
+  while(true){
+    const ym = `${y}-${String(m).padStart(2,'0')}`;
+    if(ym >= targetYm) break;
+    // 해당 월 잔액 계산
+    const txs = S.txCache[ym] || [];
+    const PASSTHRU = ['대납','정산','카드대금'];
+    const realTxs = txs.filter(t => !PASSTHRU.includes(t.cat));
+    const passTxs = txs.filter(t =>  PASSTHRU.includes(t.cat));
+    const income = realTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amt,0);
+    const cashExp = realTxs.filter(t=>t.type==='expense' && t.payMethod!=='card').reduce((s,t)=>s+t.amt,0);
+    const fixedT = getTotalFixed(ym);
+    const cardPay = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
+    bal = bal + income - cashExp - fixedT - cardPay;
+    // 다음 달
+    m++;
+    if(m > 12){ m = 1; y++; }
+  }
+  return bal;
+}
+
+function ymKeyNow(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
 const FIXED_LOANS = []; // 하위호환용 (미사용)
 const FIXED_LIVING = [];
 
@@ -874,9 +916,15 @@ function renderDash(){
   // 실제 가계 수입/지출 (대납·정산 제외)
   const income   = realTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amt,0);
   const varExp   = realTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amt,0);
+  // 카드 결제는 잔액에서 빼지 않음 (다음 달 카드대금에서 차감)
+  const cashExp  = realTxs.filter(t=>t.type==='expense' && t.payMethod!=='card').reduce((s,t)=>s+t.amt,0);
   const fixedTotal = getCurrentFixedTotal();
+  // 카드대금은 PASSTHRU지만 잔액에서는 차감 (실제 통장에서 빠지므로)
+  const cardPay  = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
   const totalExp = varExp + fixedTotal;
-  const bal = S.carryover + income - totalExp;
+  // 현재 월의 이월 잔액 (이전 달들 누적 반영)
+  const monthCarryover = getCarryoverFor(ymKey());
+  const bal = monthCarryover + income - cashExp - fixedTotal - cardPay;
 
   // 대납/정산 순액 (대납 - 정산 = 아직 못 받은 금액)
   const passOut  = passTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amt,0); // 대납
@@ -884,7 +932,7 @@ function renderDash(){
   const passNet  = passOut - passIn; // 양수 = 아직 못 받은 금액
 
   // 1) 지출 합계 = 변동 지출만 (고정지출 별도)
-  document.getElementById('d-carry').textContent = '+' + fmt(S.carryover);
+  document.getElementById('d-carry').textContent = '+' + fmt(monthCarryover);
   document.getElementById('d-income').textContent = '+' + fmt(income);
   document.getElementById('d-exp').textContent = '-' + fmt(varExp);
   document.getElementById('d-fixed').textContent = '-' + fmt(fixedTotal);
@@ -1574,6 +1622,7 @@ async function saveSettings(){
   S.salaryM   = (_sm.getNumVal?.()  || parseInt(_sm.value.replace(/[^0-9]/g,'')))||S.salaryM;
 
   localStorage.setItem('carryover', S.carryover);
+  localStorage.setItem('carryoverBaseYm', ymKeyNow()); // 기준 월 = 현재 실제 월
   localStorage.setItem('avgSpend',  S.avgSpend);
   localStorage.setItem('salaryJ',   S.salaryJ);
   localStorage.setItem('salaryM',   S.salaryM);
@@ -2236,12 +2285,15 @@ initPin();
       </div>
     </div>
     <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">기타 옵션</div>
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:14px;cursor:pointer">
-      <input type="checkbox" id="auto-salary-toggle" style="width:18px;height:18px;cursor:pointer"/>
+    <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:14px;cursor:pointer">
       <div style="flex:1">
         <div style="font-size:13px;font-weight:500">급여 자동반영</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">매달 정해진 날짜에 급여를 자동으로 추가합니다</div>
       </div>
+      <span class="toggle-switch">
+        <input type="checkbox" id="auto-salary-toggle"/>
+        <span class="toggle-slider"></span>
+      </span>
     </label>
     <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em">보안 PIN</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
