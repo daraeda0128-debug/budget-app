@@ -306,7 +306,7 @@ input:focus,select:focus{border-color:var(--blue)}
     <span class="month-label" id="m-label">2026년 4월</span>
     <button class="nav-btn" onclick="chMonth(1)">›</button>
   </div>
-  <div class="carry-bar">
+  <div class="carry-bar" onclick="editCarryover()" style="cursor:pointer">
     <span class="carry-label">이월 잔액</span>
     <span class="carry-value blur-amt" id="d-carry">--</span>
   </div>
@@ -1644,6 +1644,22 @@ async function saveSettings(){
   closeSettings();
   updateConnStatus();
   toast('✅ 저장되었습니다');
+}
+
+// 대시보드 이월잔액 박스 터치 → 빠른 수정
+async function editCarryover(){
+  if(S.isGuest) return;
+  const cur = S.carryover;
+  const input = prompt(`이월 잔액을 입력하세요 (원)\n현재: ${cur.toLocaleString('ko-KR')}원`, cur);
+  if(input === null) return; // 취소
+  const newVal = parseInt(String(input).replace(/[^0-9-]/g,''));
+  if(isNaN(newVal)){ toast('숫자만 입력해주세요'); return; }
+  S.carryover = newVal;
+  localStorage.setItem('carryover', S.carryover);
+  localStorage.setItem('carryoverBaseYm', ymKeyNow()); // 기준 월 = 현재 실제 월
+  try{ await syncConfigsToSheet({carryover: S.carryover}); }catch(e){ console.warn('carryover sync 실패', e); }
+  renderDash();
+  toast('✅ 이월잔액이 저장되었습니다');
 }
 
 async function testConn(){
