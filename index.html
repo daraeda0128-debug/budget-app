@@ -865,7 +865,8 @@ function getCarryoverFor(targetYm){
     const cashExp = realTxs.filter(t=>t.type==='expense' && t.payMethod!=='card').reduce((s,t)=>s+t.amt,0);
     const fixedT = getTotalFixed(ym);
     const cardPay = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
-    bal = bal + income - cashExp - fixedT - cardPay;
+    const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
+    bal = bal + income + passIncome - cashExp - fixedT - cardPay;
     // 다음 달
     m++;
     if(m > 12){ m = 1; y++; }
@@ -921,10 +922,12 @@ function renderDash(){
   const fixedTotal = getCurrentFixedTotal();
   // 카드대금은 PASSTHRU지만 잔액에서는 차감 (실제 통장에서 빠지므로)
   const cardPay  = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
+  // 정산 수입은 통장에 실제 들어오므로 잔액에는 반영 (수입 합계에는 포함 안 됨)
+  const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
   const totalExp = varExp + fixedTotal;
   // 현재 월의 이월 잔액 (이전 달들 누적 반영)
   const monthCarryover = getCarryoverFor(ymKey());
-  const bal = monthCarryover + income - cashExp - fixedTotal - cardPay;
+  const bal = monthCarryover + income + passIncome - cashExp - fixedTotal - cardPay;
 
   // 대납/정산 순액 (대납 - 정산 = 아직 못 받은 금액)
   const passOut  = passTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amt,0); // 대납
