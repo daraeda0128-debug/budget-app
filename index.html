@@ -882,7 +882,9 @@ function getCarryoverFor(targetYm){
     const fixedT = getTotalFixed(ym);
     const cardPay = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
     const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
-    bal = bal + income + passIncome - cashExp - fixedT - cardPay;
+    const prevCardUse = getCardUsage(prevYmOf(ym));
+    const cardExcess  = Math.max(0, prevCardUse - cardPay);
+    bal = bal + income + passIncome - cashExp - fixedT - cardPay - cardExcess;
     // 다음 달
     m++;
     if(m > 12){ m = 1; y++; }
@@ -893,6 +895,21 @@ function getCarryoverFor(targetYm){
 function ymKeyNow(){
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+// 직전 월 (YYYY-MM)
+function prevYmOf(ym){
+  let [y,m] = ym.split('-').map(Number);
+  m--; if(m<1){m=12;y--;}
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+// 해당 월의 카드 변동지출 합계 (다음 달 예상 카드 지출 산정용)
+function getCardUsage(ym){
+  const txs = S.txCache[ym] || [];
+  const PASSTHRU = ['대납','정산','카드대금'];
+  return txs.filter(t => !PASSTHRU.includes(t.cat) && t.type==='expense' && t.payMethod==='card')
+            .reduce((s,t)=>s+t.amt,0);
 }
 
 const FIXED_LOANS = []; // 하위호환용 (미사용)
@@ -940,10 +957,13 @@ function renderDash(){
   const cardPay  = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
   // 정산 수입은 통장에 실제 들어오므로 잔액에는 반영 (수입 합계에는 포함 안 됨)
   const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
+  // 전월 카드 사용액 = 이번 달 예상 카드 지출. 카드대금 입력분을 뺀 초과분만 추가 차감(이중 차감 방지)
+  const prevCardUse = getCardUsage(prevYmOf(ymKey()));
+  const cardExcess  = Math.max(0, prevCardUse - cardPay);
   const totalExp = varExp + fixedTotal;
   // 현재 월의 이월 잔액 (이전 달들 누적 반영)
   const monthCarryover = getCarryoverFor(ymKey());
-  const bal = monthCarryover + income + passIncome - cashExp - fixedTotal - cardPay;
+  const bal = monthCarryover + income + passIncome - cashExp - fixedTotal - cardPay - cardExcess;
 
   // 대납/정산 순액 (대납 - 정산 = 아직 못 받은 금액)
   const passOut  = passTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amt,0); // 대납
@@ -1541,6 +1561,12 @@ async function fetchFromSheet(){
     S.txCache[ym] = Object.entries(val).map(([fbKey,t])=>({...t, fbKey, amt:Number(t.amt||t.amount||0)}));
   } else {
     S.txCache[ym] = [];
+  }
+  // 전월 데이터도 캐시에 확보 (카드 사용액 예측용)
+  const prevYm = prevYmOf(ym);
+  if(!S.txCache[prevYm]){
+    const pval = await fbGet(`tx/${prevYm}`);
+    S.txCache[prevYm] = pval ? Object.entries(pval).map(([fbKey,t])=>({...t, fbKey, amt:Number(t.amt||t.amount||0)})) : [];
   }
   injectSalaries();
   renderDash();
