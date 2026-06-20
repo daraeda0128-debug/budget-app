@@ -832,12 +832,16 @@ function saveFixed(items, ym){
 }
 
 function getActiveFixed(ym){
-  // 월별 저장이므로 해당 월 항목 전체가 활성
-  return loadFixed(ym);
+  // 적용 기간 필터: start/end가 빈 값이면 무제한
+  return loadFixed(ym).filter(f => {
+    if(f.start && ym < f.start) return false;
+    if(f.end   && ym > f.end)   return false;
+    return true;
+  });
 }
 
 function getTotalFixed(ym){
-  return loadFixed(ym).reduce((s,f)=>s+f.amt,0);
+  return getActiveFixed(ym).reduce((s,f)=>s+f.amt,0);
 }
 
 function getCurrentFixedTotal(){
@@ -1172,7 +1176,7 @@ const FIXED_OPEN = {};
 
 function renderFixed(){
   const curYm  = ymKey();
-  const items  = loadFixed(curYm);
+  const items  = getActiveFixed(curYm);
   const totals = {};
   FIXED_CATS.forEach(c => {
     totals[c.key] = items.filter(f=>f.cat===c.key).reduce((s,f)=>s+f.amt,0);
@@ -1262,6 +1266,8 @@ function openAddFixed(){
   document.getElementById('fi-cat').value = '대출';
   document.getElementById('fi-note').value = '';
   document.getElementById('fi-payday').value = '';
+  document.getElementById('fi-start').value = '';
+  document.getElementById('fi-end').value = '';
   setupAmtInput(document.getElementById('fi-amt'));
   document.getElementById('fixed-modal').classList.add('on');
 }
@@ -1273,15 +1279,18 @@ function saveAddFixed(){
   const cat    = document.getElementById('fi-cat').value;
   const note   = document.getElementById('fi-note').value.trim();
   const payDay = parseInt(document.getElementById('fi-payday').value)||0;
+  const start  = document.getElementById('fi-start').value || '';
+  const end    = document.getElementById('fi-end').value || '';
   const editId = document.getElementById('fi-edit-id').value;
   if(!name||!amt){ toast('항목명과 금액을 입력해주세요'); return; }
+  if(start && end && start > end){ toast('종료 월이 시작 월보다 빠릅니다'); return; }
   const ym = ymKey();
   let items = loadFixed(ym);
   if(editId){
-    items = items.map(f => f.id===editId ? {...f,name,amt,cat,note,payDay} : f);
+    items = items.map(f => f.id===editId ? {...f,name,amt,cat,note,payDay,start,end} : f);
     toast('✅ 수정되었습니다');
   } else {
-    items.push({id:'f'+Date.now(), name, amt, cat, note, payDay});
+    items.push({id:'f'+Date.now(), name, amt, cat, note, payDay, start, end});
     toast('✅ 추가되었습니다');
   }
   saveFixed(items, ym);
@@ -1324,6 +1333,8 @@ function actionEdit(){
   document.getElementById('fi-cat').value   = f.cat;
   document.getElementById('fi-note').value  = f.note||'';
   document.getElementById('fi-payday').value= f.payDay||'';
+  document.getElementById('fi-start').value = f.start||'';
+  document.getElementById('fi-end').value   = f.end||'';
   setupAmtInput(document.getElementById('fi-amt'));
   document.getElementById('fixed-modal').classList.add('on');
 }
@@ -1956,7 +1967,7 @@ function renderSim(){
       else eventOut+=e.amt;
       eventLabels.push({name:e.name,amt:e.amt,type:e.type,auto:false});
     });
-    const fixedNames=new Set(loadFixed(ym).map(f=>f.name));
+    const fixedNames=new Set(getActiveFixed(ym).map(f=>f.name));
     const txs=S.txCache[ym]||[];
     txs.filter(t=>t.type==='expense'&&!SKIP.includes(t.cat)&&!fixedNames.has(t.name)&&t.amt>=threshold)
        .forEach(t=>eventLabels.push({name:t.name,amt:t.amt,type:'expense',auto:true}));
@@ -2366,6 +2377,13 @@ initPin();
     <div class="fg">
       <label class="fl">매월 출금일 (일, 없으면 비워두기)</label>
       <input type="number" id="fi-payday" placeholder="25" min="1" max="31" style="font-size:13px"/>
+    </div>
+    <div class="fg">
+      <label class="fl">적용 기간 (비워두면 무제한)</label>
+      <div style="display:flex;gap:8px">
+        <input type="month" id="fi-start" style="flex:1;font-size:13px" placeholder="시작 월"/>
+        <input type="month" id="fi-end"   style="flex:1;font-size:13px" placeholder="종료 월"/>
+      </div>
     </div>
     <input type="hidden" id="fi-edit-id"/>
     <div style="display:flex;gap:8px">
