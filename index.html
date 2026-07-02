@@ -372,7 +372,7 @@ input:focus,select:focus{border-color:var(--blue)}
         <option>생필품:잡화</option><option>생필품:식재료</option>
         <option>교통</option><option>의료</option><option>자기계발</option><option>문화/여가</option>
         <option>경조사</option><option>저축/투자</option><option>급여</option>
-        <option>상여</option><option>세금</option><option>보험료</option>
+        <option>상여</option><option>부업</option><option>세금</option><option>보험료</option>
         <option>대납</option><option>정산</option><option>카드대금</option><option>기타</option>
       </select>
     </div>
@@ -544,14 +544,14 @@ let _editingTx = null;
 const CAT_COLOR = {
   '식비':'#1D9E75','카페':'#D85A30','쇼핑':'#378ADD','교통':'#EF9F27',
   '의료':'#7F77DD','문화/여가':'#D4537E','경조사':'#D85A30',
-  '저축/투자':'#0F6E56','기타':'#888780','급여':'#1D9E75','상여':'#1D9E75',
+  '저축/투자':'#0F6E56','기타':'#888780','급여':'#1D9E75','상여':'#1D9E75','부업':'#17A87E',
   '세금':'#5F5E5A','보험료':'#7F77DD','자기계발':'#3D7BC4',
   '생필품:잡화':'#A86CC1','생필품:식재료':'#52A85B',
   '대납':'#888780','정산':'#888780','카드대금':'#888780',
 };
 const ICONS = {
   '식비':'🍚','카페':'☕','쇼핑':'🛍','교통':'🚗','의료':'💊',
-  '문화/여가':'🎬','경조사':'🎁','저축/투자':'📦','급여':'💰','상여':'🎉','기타':'📌',
+  '문화/여가':'🎬','경조사':'🎁','저축/투자':'📦','급여':'💰','상여':'🎉','부업':'💼','기타':'📌',
   '세금':'🏛️','보험료':'🛡️','자기계발':'📚',
   '생필품:잡화':'🧺','생필품:식재료':'🥬',
   '대납':'🔄','정산':'↩️','카드대금':'💳',
