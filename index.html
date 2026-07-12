@@ -984,7 +984,9 @@ function renderDash(){
 
   // 1) 지출 합계 = 변동 지출만 (고정지출 별도)
   document.getElementById('d-carry').textContent = '+' + fmt(monthCarryover);
-  document.getElementById('d-income').textContent = ((income+buNet)>=0?'+':'') + fmt(income + buNet);
+  // 수입 표시: 부업은 담당자별 순액이 흑자(+)인 것만 수입에 반영. 적자는 수입에서 차감하지 않고 잔액에만 반영
+  const buPos = Math.max(0, buJNet) + Math.max(0, buMNet);
+  document.getElementById('d-income').textContent = '+' + fmt(income + buPos);
   document.getElementById('d-exp').textContent = '-' + fmt(varExp);
   document.getElementById('d-fixed').textContent = '-' + fmt(fixedTotal);
   const balEl = document.getElementById('d-bal');
