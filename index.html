@@ -874,7 +874,7 @@ function getCarryoverFor(targetYm){
     if(ym >= targetYm) break;
     // 해당 월 잔액 계산
     const txs = S.txCache[ym] || [];
-    const PASSTHRU = ['대납','정산','카드대금'];
+    const PASSTHRU = ['대납','정산','카드대금','부업'];
     const realTxs = txs.filter(t => !PASSTHRU.includes(t.cat));
     const passTxs = txs.filter(t =>  PASSTHRU.includes(t.cat));
     const income = realTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amt,0);
@@ -882,9 +882,10 @@ function getCarryoverFor(targetYm){
     const fixedT = getTotalFixed(ym);
     const cardPay = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
     const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
+    const buNet = passTxs.filter(t=>t.cat==='부업').reduce((s,t)=>s + (t.type==='income'?t.amt:-t.amt),0);
     const prevCardUse = getCardUsage(prevYmOf(ym));
     const cardExcess  = Math.max(0, prevCardUse - cardPay);
-    bal = bal + income + passIncome - cashExp - fixedT - cardPay - cardExcess;
+    bal = bal + income + passIncome + buNet - cashExp - fixedT - cardPay - cardExcess;
     // 다음 달
     m++;
     if(m > 12){ m = 1; y++; }
@@ -907,7 +908,7 @@ function prevYmOf(ym){
 // 해당 월의 카드 변동지출 합계 (다음 달 예상 카드 지출 산정용)
 function getCardUsage(ym){
   const txs = S.txCache[ym] || [];
-  const PASSTHRU = ['대납','정산','카드대금'];
+  const PASSTHRU = ['대납','정산','카드대금','부업'];
   return txs.filter(t => !PASSTHRU.includes(t.cat) && t.type==='expense' && t.payMethod==='card')
             .reduce((s,t)=>s+t.amt,0);
 }
@@ -943,7 +944,7 @@ function renderDash(){
   const txs = (S.txCache[ymKey()] || []);
 
   // 대납/정산/카드대금 분리
-  const PASSTHRU = ['대납','정산','카드대금'];
+  const PASSTHRU = ['대납','정산','카드대금','부업'];
   const realTxs  = txs.filter(t => !PASSTHRU.includes(t.cat));
   const passTxs  = txs.filter(t =>  PASSTHRU.includes(t.cat));
 
@@ -957,13 +958,17 @@ function renderDash(){
   const cardPay  = passTxs.filter(t=>t.type==='expense' && t.cat==='카드대금').reduce((s,t)=>s+t.amt,0);
   // 정산 수입은 통장에 실제 들어오므로 잔액에는 반영 (수입 합계에는 포함 안 됨)
   const passIncome = passTxs.filter(t=>t.type==='income' && t.cat==='정산').reduce((s,t)=>s+t.amt,0);
+  // 부업: 지출/수입 합계·카테고리 집계에서 제외하되 잔액에는 순액 반영 (수입 +, 지출 −)
+  const buIncome  = passTxs.filter(t=>t.type==='income'  && t.cat==='부업').reduce((s,t)=>s+t.amt,0);
+  const buExpense = passTxs.filter(t=>t.type==='expense' && t.cat==='부업').reduce((s,t)=>s+t.amt,0);
+  const buNet = buIncome - buExpense;
   // 전월 카드 사용액 = 이번 달 예상 카드 지출. 카드대금 입력분을 뺀 초과분만 추가 차감(이중 차감 방지)
   const prevCardUse = getCardUsage(prevYmOf(ymKey()));
   const cardExcess  = Math.max(0, prevCardUse - cardPay);
   const totalExp = varExp + fixedTotal;
   // 현재 월의 이월 잔액 (이전 달들 누적 반영)
   const monthCarryover = getCarryoverFor(ymKey());
-  const bal = monthCarryover + income + passIncome - cashExp - fixedTotal - cardPay - cardExcess;
+  const bal = monthCarryover + income + passIncome + buNet - cashExp - fixedTotal - cardPay - cardExcess;
 
   // 대납/정산 순액 (대납 - 정산 = 아직 못 받은 금액)
   const passOut  = passTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amt,0); // 대납
@@ -972,7 +977,7 @@ function renderDash(){
 
   // 1) 지출 합계 = 변동 지출만 (고정지출 별도)
   document.getElementById('d-carry').textContent = '+' + fmt(monthCarryover);
-  document.getElementById('d-income').textContent = '+' + fmt(income);
+  document.getElementById('d-income').textContent = ((income+buNet)>=0?'+':'') + fmt(income + buNet);
   document.getElementById('d-exp').textContent = '-' + fmt(varExp);
   document.getElementById('d-fixed').textContent = '-' + fmt(fixedTotal);
   const balEl = document.getElementById('d-bal');
@@ -989,6 +994,21 @@ function renderDash(){
     const passNet2 = passOut2 - passIn2;
     passBox.innerHTML = `
       <div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em">가계부 외 항목 (잔액 미반영)</div>
+      ${(buIncome > 0 || buExpense > 0) ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;
+                    padding:10px 12px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:16px">💼</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">부업</div>
+              <div style="font-size:11px;color:var(--text3)">수입·잔액에 순액 반영 · 지출 집계 제외</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            ${buIncome>0?`<div style="font-size:12px;color:var(--green)">수입 +${fmtW(buIncome)}</div>`:''}
+            ${buExpense>0?`<div style="font-size:12px;color:var(--red)">지출 -${fmtW(buExpense)}</div>`:''}
+          </div>
+        </div>` : ''}
       ${cardAmt > 0 ? `
         <div style="display:flex;justify-content:space-between;align-items:center;
                     padding:10px 12px;background:var(--bg2);border-radius:var(--radius-sm);margin-bottom:6px">
