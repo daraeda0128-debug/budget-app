@@ -1,0 +1,13 @@
+{
+    email {$ACME_EMAIL}
+    admin off
+}
+{$DOMAIN} {
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    }
+    reverse_proxy api:8000
+}

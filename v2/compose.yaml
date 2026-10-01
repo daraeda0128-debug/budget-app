@@ -1,0 +1,53 @@
+name: budget-v2
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?required}
+      ACME_EMAIL: ${ACME_EMAIL:?required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on: [api]
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://budget:${POSTGRES_PASSWORD:?required}@db:5432/budget
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?required}
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    networks: [edge, data]
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: budget
+      POSTGRES_USER: budget
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/001.sql:/docker-entrypoint-initdb.d/001.sql:ro
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U budget -d budget"]
+      interval: 5s
+      retries: 20
+networks:
+  edge:
+  data:
+    internal: true
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
