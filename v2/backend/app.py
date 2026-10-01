@@ -16,7 +16,7 @@ from argon2.exceptions import VerificationError
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 ph = PasswordHasher()
@@ -97,12 +97,25 @@ class SimulationEvent(BaseModel):
     direction: str
     month: str = Field(pattern=r'^\d{4}-\d{2}$')
     owner: str = 'b'
+    repeat: bool = False
+    months: list[int] = Field(default_factory=list, max_length=12)
+    start_year: int | None = Field(default=None, ge=2000, le=2200)
+    end_year: int | None = Field(default=None, ge=2000, le=2200)
 
     @field_validator('direction')
     @classmethod
     def valid_event_direction(cls, v):
         if v not in {'income','expense'}: raise ValueError('invalid direction')
         return v
+
+    @model_validator(mode='after')
+    def valid_recurrence(self):
+        if self.repeat:
+            if not self.months or any(m < 1 or m > 12 for m in self.months) or len(set(self.months)) != len(self.months):
+                raise ValueError('recurring events need unique months from 1 to 12')
+            if self.start_year is None or self.end_year is None or self.end_year < self.start_year:
+                raise ValueError('recurring events need a valid year range')
+        return self
 
 @app.get('/health')
 def health():
@@ -227,7 +240,8 @@ def get_simulation(user=Depends(authenticated)):
 @app.post('/api/simulation',status_code=201)
 def add_simulation(data: SimulationEvent, user=Depends(authenticated)):
     valid_month(data.month)
-    event={'name':data.name.strip(),'amount':data.amount,'direction':data.direction,'month':data.month,'owner':data.owner if data.owner in {'j','m','b'} else 'b'}
+    event={'name':data.name.strip(),'amount':data.amount,'direction':data.direction,'month':data.month,'owner':data.owner if data.owner in {'j','m','b'} else 'b', 'repeat':data.repeat}
+    if data.repeat: event.update({'months':sorted(data.months),'start_year':data.start_year,'end_year':data.end_year})
     event_id=str(uuid.uuid4())
     with database() as db: db.execute('INSERT INTO simulation_events(id,value) VALUES (%s,%s)',(event_id,Jsonb(event)))
     return {'id':event_id,'value':event}
@@ -256,7 +270,13 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
             if x['direction']=='expense': actual[x['month']]['cash_expense']+=x['cash_amount']
     fixed_map={x['month']:(x['items'] or []) for x in fixed}; result=[]
     for m in month_list:
-        event_net=sum((1 if e['value'].get('direction')=='income' else -1)*int(e['value'].get('amount',0)) for e in events if e['value'].get('month')==m)
+        yy,mm=map(int,m.split('-'))
+        event_net=0
+        for row in events:
+            event=row['value']; occurs=(event.get('month')==m)
+            if event.get('repeat'):
+                occurs=(int(event.get('start_year',yy))<=yy<=int(event.get('end_year',yy)) and mm in event.get('months',[]))
+            if occurs: event_net+=(1 if event.get('direction')=='income' else -1)*int(event.get('amount',0))
         fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_map.get(m,[]) if x.get('payMethod',x.get('payment_method','cash'))=='cash')
         expected_salary=(int(salary.get('salary_j',0))+int(salary.get('salary_m',0))) if salary.get('enabled') else 0
         result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['cash_expense']-fixed_total})
@@ -316,3 +336,4 @@ def import_csv(items: list[Transaction], response: Response, user=Depends(authen
 def index(): return FileResponse('/app/static/index.html')
 
 app.mount('/static', StaticFiles(directory='/app/static'), name='static')
+
