@@ -1,6 +1,6 @@
 # Budget V2 — 준비 단계
 
-기존 루트 index.html, main, Firebase는 보존한다. V2에는 세션 로그인 화면, 월별 수입·지출·고정 현금지출 요약, 카테고리별 소비, 거래 검색/담당자 필터, 거래 추가/수정/삭제, CSV 미리보기 및 멱등 일괄 가져오기가 구현되어 있다. 모든 거래 입력은 FastAPI와 PostgreSQL에 저장된다. 급여 자동반영, 이월 계산, 고정지출 편집, 시뮬레이션 및 상세 현금흐름은 다음 단계이며 기존 서비스와 동시 운영 중이다.
+기존 루트 index.html, main, Firebase는 보존한다. V2는 모바일 우선 세션 로그인, 월별 요약/카테고리, 거래 CRUD, CSV 미리보기·멱등 가져오기, 월별 고정지출 스냅샷, 급여 예상 설정, 이월 잔액 기준점, 예정 이벤트와 6개월 예상 순흐름을 제공한다. 예상 급여는 실제 거래로 자동 생성하지 않으며, Firebase 자료는 별도 검토·이전 절차 전까지 유지한다. 카드 청구 시점, 부분정산 및 담당자별 부업 상계는 데이터 검토와 계산 검증을 거쳐 확장할 영역이다.
 
 ## 실제 맥미니 점검 (2026-10-01 KST)
 
@@ -10,9 +10,9 @@
 - DNS 레코드 화면에서 wallet A 레코드가 추가됐고, 권한 네임서버 및 일반 조회 모두 `wallet.picknote.store → 59.17.107.163`을 반환함. AAAA 없음. 맥미니 공인 IPv4와 일치.
 - Ollama 두 프로세스: IPv6 *:11434와 IPv4 127.0.0.1:11434. 기존 프로세스를 임의 중단하지 않는다. 전체 인터페이스 리스너 원인을 확인하고 호스트 방화벽과 IPv6 접근을 검증하기 전 LLM 기능은 활성화하지 않는다.
 
-Docker Desktop 시작 후 기존 carsystem-backend(3000 공개), carsystem-postgres(5432 공개)가 확인됨. 기존 서비스 변경 없음. V2는 별도 budget-v2 프로젝트 및 볼륨, DB/API host ports 없이 기동 검증 완료. .env는 wallet.picknote.store로 설정 예정이며 무작위 DB 암호는 저장소에 포함하지 않음. DNS A 레코드가 전파되어 조회됨. 공유기 포트 전달 및 공인 HTTPS는 미확인.
+기존 carsystem-backend(3000 공개), carsystem-postgres(5432 공개)는 변경하지 않았다. V2는 별도 budget-v2 프로젝트/볼륨으로 운영하며 PostgreSQL과 FastAPI 포트를 호스트에 공개하지 않는다. `wallet.picknote.store` DNS A 레코드와 Caddy 자동 HTTPS를 사용하고, 공유기에서는 80/443만 Mac mini로 전달한다.
 
-검증 결과: 이전 단위 테스트 5개 통과; ARM64 API 이미지 빌드; DB healthcheck; 실제 세션 로그인/보호 API/Origin 거부/CSRF 거부/로그아웃 세션 무효화; 실제 SQL 이전 건수·합계 대조 및 동일 batch 재실행 모두 통과. 샘플 및 테스트 계정 정리 후 users/transactions 0건 확인. Caddy validate 통과 (공인 인증서 발급은 미검증). API 컨테이너에서 host.docker.internal:11434/api/version 접속 성공, Ollama 0.33.3. 호스트/LAN 방화벽 범위는 아직 미검증.
+검증 결과: 이전 단위 테스트 5개 통과; ARM64 API 이미지 빌드; DB healthcheck; 실제 세션 로그인/보호 API/Origin 거부/CSRF 거부/로그아웃 세션 무효화; 실제 SQL 이전 건수·합계 대조 및 동일 batch 재실행 모두 통과. 샘플 및 테스트 계정 정리 후 users/transactions 0건 확인. Caddy validate 통과 (이전 점검 기록). API 컨테이너에서 host.docker.internal:11434/api/version 접속 성공, Ollama 0.33.3. 호스트/LAN 방화벽 범위는 아직 미검증.
 
 ## 경계와 실행
 
