@@ -190,11 +190,12 @@ async function confirmImport() {
 }
 
 let fixedItems=[];
+let loanFixedItems=[];
 async function loadPlanning(){
   try {
-    const [salary,fixed,carry,events,forecast]=await Promise.all([api('/api/settings/salary'),api(`/api/fixed?month=${selectedMonth}`),api(`/api/carry/${selectedMonth}`),api('/api/simulation'),api(`/api/simulation/forecast?start=${selectedMonth}&months=6`)]);
+    const [salary,fixed,carry,events,forecast,finance]=await Promise.all([api('/api/settings/salary'),api(`/api/fixed?month=${selectedMonth}`),api(`/api/carry/${selectedMonth}`),api('/api/simulation'),api(`/api/simulation/forecast?start=${selectedMonth}&months=6`),api(`/api/finance?month=${selectedMonth}`)]);
     const sf=$('#salary-form'); for(const k of ['salary_j','salary_m','day_j','day_m'])sf.elements[k].value=salary[k]??0; sf.elements.enabled.checked=salary.enabled;
-    fixedItems=fixed.items||[]; $('#fixed-month-label').textContent=selectedMonth; renderFixed();
+    fixedItems=fixed.items||[]; loanFixedItems=(finance.accounts||[]).filter(a=>a.kind==='loan').flatMap(a=>(a.loan_schedule||[]).filter(x=>x.month===selectedMonth&&Number(x.payment)>0).map(x=>({name:a.name,amount:Number(x.payment),number:x.number}))); $('#fixed-month-label').textContent=selectedMonth; renderFixed();
     $('#carry-form').elements.amount.value=carry.amount??'';
     $('#carry-result').textContent=carry.amount===null?'아직 이 달의 시작 잔액을 설정하지 않았어요.':`기준 잔액 ${won.format(carry.amount)}`;
     const shown=events.filter(e=>e.value.repeat||e.value.month===selectedMonth); $('#event-list').innerHTML=shown.length?shown.map(e=>`<div class="plan-row"><span>${escapeHtml(e.value.name)} · ${e.value.direction==='income'?'수입':'지출'} ${won.format(e.value.amount)}${e.value.repeat?` · 매년 ${e.value.months.join(', ')}월 (${e.value.start_year}–${e.value.end_year})`:''}</span><button type="button" class="row-edit" data-event-id="${escapeHtml(e.id)}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 예정 항목이 없습니다.</p>';
@@ -203,7 +204,9 @@ async function loadPlanning(){
 }
 function renderFixed(){
   const box=$('#fixed-list');
-  box.innerHTML=fixedItems.length?fixedItems.map((x,i)=>`<div class="plan-row"><span>${escapeHtml(x.name)} <small>${x.payMethod==='card'?'카드':'현금·이체'} · ${whoNames[x.owner]||'공동'}</small></span><strong>${won.format(Number(x.amt??x.amount??0))}</strong><button type="button" class="row-edit" data-fixed-index="${i}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 고정지출이 없습니다.</p>';
+  const manual=fixedItems.filter(x=>!loanFixedItems.some(loan=>loan.name.trim().toLocaleLowerCase()===String(x.name||'').trim().toLocaleLowerCase()));
+  const rows=loanFixedItems.map(x=>`<div class="plan-row loan-fixed-row"><span>${escapeHtml(x.name)} <small>대출 납부 일정 · ${x.number}회차</small></span><strong>${won.format(x.amount)}</strong><span class="muted">자동</span></div>`).join('');
+  box.innerHTML=(manual.length?manual.map(x=>{const i=fixedItems.indexOf(x);return `<div class="plan-row"><span>${escapeHtml(x.name)} <small>${x.payMethod==='card'?'카드':'현금·이체'} · ${whoNames[x.owner]||'공동'}</small></span><strong>${won.format(Number(x.amt??x.amount??0))}</strong><button type="button" class="row-edit" data-fixed-index="${i}">삭제</button></div>`;}).join(''):'')+rows||'<p class="muted">이 달에 등록한 고정지출이 없습니다.</p>';
 }
 $('#salary-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/settings/salary',{method:'PUT',body:JSON.stringify({enabled:f.elements.enabled.checked,salary_j:Number(f.elements.salary_j.value||0),salary_m:Number(f.elements.salary_m.value||0),day_j:Number(f.elements.day_j.value||10),day_m:Number(f.elements.day_m.value||17)})});toast('급여 설정을 저장했어요.');await loadPlanning();}catch(err){toast(err.message);}});
 $('#fixed-form').addEventListener('submit',e=>{e.preventDefault();const f=e.currentTarget;fixedItems.push({name:f.elements.name.value.trim(),amt:Number(f.elements.amount.value),payMethod:f.elements.payment_method.value,owner:f.elements.owner.value});f.reset();renderFixed();});
