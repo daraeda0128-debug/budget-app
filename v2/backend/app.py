@@ -283,7 +283,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         anchor=db.execute('SELECT month,amount FROM carry_anchors WHERE month<=%s ORDER BY month DESC LIMIT 1',(month,)).fetchone()
         flow_start=anchor['month'] if anchor else f'{start.year}-01'
         fs_y,fs_m=map(int,flow_start.split('-')); history_start=f'{fs_y-1:04d}-12' if fs_m==1 else f'{fs_y:04d}-{fs_m-1:02d}'
-        flow_rows=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s GROUP BY 1,direction,category,payment_method",(history_start+'-01',end)).fetchall()
+        flow_rows=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s GROUP BY 1,direction,category,payment_method",(history_start+'-01',end)).fetchall()
         flow_fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month >= %s AND month <= %s',(history_start,month)).fetchall()
     income=sum(r['amount'] for r in rows if r['direction']=='income' and r['category'] not in PASSTHROUGH)
     expenses=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH)
@@ -295,7 +295,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     fixed_items=(fixed['items'] or []) if fixed else []
     fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_items if x.get('payMethod',x.get('payment_method','cash'))!='card')
     flow_by_month={}
-    for row in flow_rows: flow_by_month.setdefault(row['month'],[]).append(row)
+    for row in flow_rows: flow_by_month.setdefault(row['transaction_month'],[]).append(row)
     fixed_by_month={r['month']:(r['items'] or []) for r in flow_fixed}
     def card_usage(ym):
         variable=sum(r['amount'] for r in flow_by_month.get(ym,[]) if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')
@@ -546,13 +546,13 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
         events=db.execute('SELECT id,value FROM simulation_events').fetchall()
         fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
         salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
-        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4,5",(start+'-01',start+'-01',months)).fetchall()
+        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4,5",(start+'-01',start+'-01',months)).fetchall()
     salary=salary_row['value'] if salary_row else {'enabled':False,'salary_j':0,'salary_m':0}
     actual={m:{'income':0,'expense':0,'cash_expense':0} for m in month_list}
     for x in tx:
         if x['category'] not in PASSTHROUGH:
-            actual[x['month']][x['direction']]+=x['amount']
-            if x['direction']=='expense': actual[x['month']]['cash_expense']+=x['cash_amount']
+            actual[x['transaction_month']][x['direction']]+=x['amount']
+            if x['direction']=='expense': actual[x['transaction_month']]['cash_expense']+=x['cash_amount']
     fixed_map={x['month']:(x['items'] or []) for x in fixed}; result=[]
     for m in month_list:
         yy,mm=map(int,m.split('-'))
