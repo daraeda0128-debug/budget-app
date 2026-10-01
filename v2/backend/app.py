@@ -164,7 +164,6 @@ class FinancialAccount(BaseModel):
                 if self.principal_defer_start<self.execution_date: raise ValueError('principal defer cannot start before the loan execution date')
                 month_offset=(self.principal_defer_start.year-self.execution_date.year)*12+self.principal_defer_start.month-self.execution_date.month
                 if month_offset+self.principal_defer_months>self.term_months: raise ValueError('principal defer extends beyond loan maturity')
-            if self.balance is None: self.balance=self.loan_principal
         elif any(v is not None for v in loan_fields) or self.grace_months or self.principal_defer_start is not None or self.principal_defer_months:
             raise ValueError('loan terms can only be set on a loan account')
         return self
@@ -373,6 +372,12 @@ def loan_schedule(account):
     return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
 
 
+def scheduled_loan_balance(account, as_of):
+    """Return principal remaining after scheduled installments due on or before a date."""
+    schedule=loan_schedule(dict(account))['schedule']
+    settled=[row for row in schedule if date.fromisoformat(row['date'])<=as_of]
+    return int(settled[-1]['remaining_balance']) if settled else int(account['loan_principal'])
+
 def loan_payments_by_month(accounts, start_month, end_month):
     """Return scheduled loan cash payments grouped by month and loan display name."""
     due={}
@@ -420,7 +425,10 @@ def finance_hub(month: str, user=Depends(authenticated)):
     for account in accounts:
         row=dict(account); benefits=[]
         if row['kind']=='loan' and row['loan_principal']:
-            loan=loan_schedule(row); row.update({'maturity_date':loan['maturity_date'],'total_interest':loan['total_interest'],'loan_schedule':[x for x in loan['schedule'] if x['month']>=month]})
+            loan=loan_schedule(row); calculated_balance=scheduled_loan_balance(row,date.today())
+            balance_is_estimated=row['balance'] is None or int(row['balance']) in {int(row['loan_principal']),calculated_balance}
+            if balance_is_estimated: row['balance']=calculated_balance
+            row.update({'balance_is_estimated':balance_is_estimated,'maturity_date':loan['maturity_date'],'total_interest':loan['total_interest'],'loan_schedule':[x for x in loan['schedule'] if x['month']>=month]})
         if row['kind']=='card':
             txs=usage_map.get(row['id'],[]); row['month_spend']=sum(x['amount'] for x in txs if x['usage_month']==month); row['year_spend']=sum(x['amount'] for x in txs)
             for raw in row['benefits'] or []:
