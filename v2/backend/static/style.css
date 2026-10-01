@@ -187,3 +187,13 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 :root[data-theme="dark"] .account-loan .account-kind{background:#873d29;color:#fff4ef}
 :root[data-theme="dark"] .account-investment .account-kind{background:#3e4f9a;color:#f0f2ff}
 :root[data-theme="dark"] .account-credit .account-kind{background:#735719;color:#fff9e9}
+
+/* Unified deep-green account cards with restrained green-only identifiers. */
+.account-card.account-bank,.account-card.account-loan,.account-card.account-investment,.account-card.account-credit{background:var(--card);border-left:5px solid #438766}
+.account-card.account-bank{border-left-color:#438766}.account-card.account-loan{border-left-color:#5b9278}.account-card.account-investment{border-left-color:#73a18e}.account-card.account-credit{border-left-color:#89aa93}
+.account-bank .account-kind,.account-loan .account-kind,.account-investment .account-kind,.account-credit .account-kind{color:#e6f4eb;background:#294a38}
+.account-loan .account-kind{background:#305140}.account-investment .account-kind{background:#365748}.account-credit .account-kind{background:#3d5c48}
+:root[data-theme="dark"] .account-card.account-bank,:root[data-theme="dark"] .account-card.account-loan,:root[data-theme="dark"] .account-card.account-investment,:root[data-theme="dark"] .account-card.account-credit{background:var(--card);border-color:var(--line)}
+:root[data-theme="dark"] .account-card.account-bank{border-left-color:#438766}:root[data-theme="dark"] .account-card.account-loan{border-left-color:#5b9278}:root[data-theme="dark"] .account-card.account-investment{border-left-color:#73a18e}:root[data-theme="dark"] .account-card.account-credit{border-left-color:#89aa93}
+:root[data-theme="dark"] .account-bank .account-kind,:root[data-theme="dark"] .account-loan .account-kind,:root[data-theme="dark"] .account-investment .account-kind,:root[data-theme="dark"] .account-credit .account-kind{color:#e6f4eb;background:#294a38}
+:root[data-theme="dark"] .account-loan .account-kind{background:#305140}:root[data-theme="dark"] .account-investment .account-kind{background:#365748}:root[data-theme="dark"] .account-credit .account-kind{background:#3d5c48}
