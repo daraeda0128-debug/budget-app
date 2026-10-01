@@ -135,6 +135,8 @@ class FinancialAccount(BaseModel):
     repayment_method: str | None = None
     payment_day: int | None = Field(default=None,ge=1,le=31)
     grace_months: int = Field(default=0,ge=0,le=600)
+    principal_defer_start: date | None = None
+    principal_defer_months: int = Field(default=0,ge=0,le=600)
 
     @field_validator('kind')
     @classmethod
@@ -155,10 +157,15 @@ class FinancialAccount(BaseModel):
         loan_fields=(self.loan_principal,self.execution_date,self.term_months,self.annual_rate_bps,self.repayment_method,self.payment_day)
         if self.kind=='loan':
             if any(v is None for v in loan_fields): raise ValueError('loan terms are required')
-            if self.repayment_method not in {'equal_payment','equal_principal','bullet','grace_equal_payment'}: raise ValueError('invalid repayment method')
+            if self.repayment_method not in {'equal_payment','equal_principal','bullet','grace_equal_payment','principal_defer'}: raise ValueError('invalid repayment method')
             if self.repayment_method=='grace_equal_payment' and self.grace_months>=self.term_months: raise ValueError('grace period must be shorter than the loan term')
+            if self.repayment_method=='principal_defer' and (self.principal_defer_start is None or self.principal_defer_months<1): raise ValueError('principal defer start and duration are required')
+            if self.repayment_method=='principal_defer':
+                if self.principal_defer_start<self.execution_date: raise ValueError('principal defer cannot start before the loan execution date')
+                month_offset=(self.principal_defer_start.year-self.execution_date.year)*12+self.principal_defer_start.month-self.execution_date.month
+                if month_offset+self.principal_defer_months>self.term_months: raise ValueError('principal defer extends beyond loan maturity')
             if self.balance is None: self.balance=self.loan_principal
-        elif any(v is not None for v in loan_fields) or self.grace_months:
+        elif any(v is not None for v in loan_fields) or self.grace_months or self.principal_defer_start is not None or self.principal_defer_months:
             raise ValueError('loan terms can only be set on a loan account')
         return self
 
@@ -327,15 +334,22 @@ def loan_schedule(account):
     principal=int(account['loan_principal']); term=int(account['term_months']); rate=int(account['annual_rate_bps'])/120000
     method=account['repayment_method']; grace=int(account.get('grace_months') or 0) if method=='grace_equal_payment' else 0
     amort_months=term-grace; balance=principal; monthly_payment=principal/amort_months if rate==0 else principal*rate/(1-(1+rate)**(-amort_months))
+    defer_start=account.get('principal_defer_start') if method=='principal_defer' else None
+    defer_months=int(account.get('principal_defer_months') or 0) if method=='principal_defer' else 0
+    defer_end=add_months(defer_start,defer_months) if defer_start and defer_months else None
     schedule=[]; total_interest=0
     for index in range(1,term+1):
         due=add_months(account['execution_date'],index); due=date(due.year,due.month,min(int(account['payment_day']),calendar.monthrange(due.year,due.month)[1])); interest=int(balance*rate+0.5)
-        if method=='bullet': principal_due=balance if index==term else 0
+        deferred=bool(defer_start and due>=defer_start and due<defer_end)
+        if deferred: principal_due=0
+        elif method=='principal_defer' and defer_end and due>=defer_end:
+            remaining=max(1,term-index+1); resumed_payment=balance/remaining if rate==0 else balance*rate/(1-(1+rate)**(-remaining)); principal_due=min(balance,max(0,int(resumed_payment+0.5)-interest))
+        elif method=='bullet': principal_due=balance if index==term else 0
         elif method=='equal_principal' or (method=='grace_equal_payment' and index<=grace): principal_due=0 if index<=grace else min(balance,principal//amort_months+(1 if index-grace==amort_months else 0))
         else: principal_due=min(balance,max(0,int(monthly_payment+0.5)-interest))
         if index==term: principal_due=balance
         payment=principal_due+interest; balance=max(0,balance-principal_due); total_interest+=interest
-        schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance})
+        schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance,'principal_deferred':deferred})
     return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
 
 def installment_schedule(purchase):
@@ -384,7 +398,7 @@ def finance_hub(month: str, user=Depends(authenticated)):
 def add_financial_account(data: FinancialAccount,user=Depends(authenticated)):
     account_id=str(uuid.uuid4()); r=data.model_dump()
     with database() as db:
-        db.execute('INSERT INTO financial_accounts(id,kind,name,institution,owner,last_four,balance,credit_limit,billing_day,notes,benefits,loan_principal,execution_date,term_months,annual_rate_bps,repayment_method,payment_day,grace_months) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(account_id,r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb([b.model_dump() for b in data.benefits]),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months']))
+        db.execute('INSERT INTO financial_accounts(id,kind,name,institution,owner,last_four,balance,credit_limit,billing_day,notes,benefits,loan_principal,execution_date,term_months,annual_rate_bps,repayment_method,payment_day,grace_months,principal_defer_start,principal_defer_months) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(account_id,r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb([b.model_dump() for b in data.benefits]),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months'],r['principal_defer_start'],r['principal_defer_months']))
     return {'id':account_id,**r}
 
 @app.put('/api/finance/accounts/{account_id}')
@@ -394,7 +408,7 @@ def update_financial_account(account_id: str,data: FinancialAccount,user=Depends
         existing=db.execute('SELECT benefits FROM financial_accounts WHERE id=%s',(account_id,)).fetchone()
         if not existing: raise HTTPException(404,'Account not found')
         benefits=[b.model_dump() for b in data.benefits] or (existing['benefits'] or [] if data.kind=='card' else [])
-        saved=db.execute('UPDATE financial_accounts SET kind=%s,name=%s,institution=%s,owner=%s,last_four=%s,balance=%s,credit_limit=%s,billing_day=%s,notes=%s,benefits=%s,loan_principal=%s,execution_date=%s,term_months=%s,annual_rate_bps=%s,repayment_method=%s,payment_day=%s,grace_months=%s WHERE id=%s RETURNING id',(r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb(benefits),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months'],account_id)).fetchone()
+        saved=db.execute('UPDATE financial_accounts SET kind=%s,name=%s,institution=%s,owner=%s,last_four=%s,balance=%s,credit_limit=%s,billing_day=%s,notes=%s,benefits=%s,loan_principal=%s,execution_date=%s,term_months=%s,annual_rate_bps=%s,repayment_method=%s,payment_day=%s,grace_months=%s,principal_defer_start=%s,principal_defer_months=%s WHERE id=%s RETURNING id',(r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb(benefits),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months'],r['principal_defer_start'],r['principal_defer_months'],account_id)).fetchone()
     if not saved: raise HTTPException(404,'Account not found')
     return {'id':account_id,**r}
 
