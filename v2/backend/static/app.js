@@ -2,6 +2,8 @@ const $ = (selector) => document.querySelector(selector);
 const won = new Intl.NumberFormat('ko-KR', {style:'currency',currency:'KRW',maximumFractionDigits:0});
 const whoNames = {j:'진수',m:'미나',b:'공동'};
 let csrf = '';
+$('#theme-toggle').addEventListener('click',()=>window.walletTheme.toggle());
+window.walletTheme.apply();
 const localToday=new Date();
 let selectedMonth = `${localToday.getFullYear()}-${String(localToday.getMonth()+1).padStart(2,'0')}`;
 let loadedTransactions = [];
