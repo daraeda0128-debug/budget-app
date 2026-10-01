@@ -354,7 +354,9 @@ def delete_financial_account(account_id: str,user=Depends(authenticated)):
 def add_automatic_payment(data: AutomaticPayment,user=Depends(authenticated)):
     payment_id=str(uuid.uuid4()); r=data.model_dump()
     with database() as db:
-        if r['source_account_id'] and not db.execute('SELECT id FROM financial_accounts WHERE id=%s',(r['source_account_id'],)).fetchone(): raise HTTPException(422,'출금 계좌/카드를 찾을 수 없습니다.')
+        if r['source_account_id']:
+            source=db.execute('SELECT kind FROM financial_accounts WHERE id=%s',(r['source_account_id'],)).fetchone()
+            if not source or source['kind'] not in {'bank','card'}: raise HTTPException(422,'출금 계좌/카드를 찾을 수 없습니다.')
         if r['related_card_id'] and not db.execute("SELECT id FROM financial_accounts WHERE id=%s AND kind='card'",(r['related_card_id'],)).fetchone(): raise HTTPException(422,'연결 카드를 찾을 수 없습니다.')
         db.execute('INSERT INTO automatic_payments(id,name,amount,cadence,debit_day,category,source_account_id,related_card_id,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',(payment_id,r['name'].strip(),r['amount'],r['cadence'],r['debit_day'],r['category'].strip(),r['source_account_id'],r['related_card_id'],r['notes'].strip()))
     return {'id':payment_id,**r,'active':True}
