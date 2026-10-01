@@ -59,3 +59,48 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
   .transaction-dialog{max-width:100vw;overflow-x:clip}
   .transaction-dialog form{width:100%;max-width:100%;overflow-x:clip}
 }
+
+:root[data-theme="dark"]{color-scheme:dark;color:#edf3ee;background:#141916;--ink:#edf3ee;--muted:#a3afa7;--line:#303a33;--green:#78c99c;--green-bg:#20372a;--red:#f08a7e;--red-bg:#3b2825;--card:#1e2721;--shadow:0 10px 30px #0005}
+:root[data-theme="dark"] .login-shell{background:radial-gradient(ellipse at 50% 0%,#22372a 0,transparent 55%),#141916}
+:root[data-theme="dark"] .login-card,
+:root[data-theme="dark"] .summary-card,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .quick-action,
+:root[data-theme="dark"] .transaction-dialog,
+:root[data-theme="dark"] .plan-form,
+:root[data-theme="dark"] .plan-row{background:var(--card);border-color:var(--line);color:var(--ink)}
+:root[data-theme="dark"] .brand,:root[data-theme="dark"] .tx-name,:root[data-theme="dark"] .summary-card strong{color:var(--ink)}
+:root[data-theme="dark"] .income-card strong,:root[data-theme="dark"] .amount.income{color:#78c99c}
+:root[data-theme="dark"] .expense-card strong,:root[data-theme="dark"] .amount.expense{color:#f08a7e}
+:root[data-theme="dark"] .balance-card strong.negative{color:#f08a7e}
+:root[data-theme="dark"] .month-control input,
+:root[data-theme="dark"] .stack input,
+:root[data-theme="dark"] .form-grid input,
+:root[data-theme="dark"] .form-grid select,
+:root[data-theme="dark"] .filters input,
+:root[data-theme="dark"] .filters select,
+:root[data-theme="dark"] .plan-form input:not([type=checkbox]),
+:root[data-theme="dark"] .plan-form select{background:#151c17;border-color:var(--line);color:var(--ink);color-scheme:dark}
+:root[data-theme="dark"] .icon-button,:root[data-theme="dark"] .button.secondary{background:#252f28;border-color:#3a463e;color:#e4ece6}
+:root[data-theme="dark"] .category-track,:root[data-theme="dark"] .pass-summary,:root[data-theme="dark"] .type-toggle{background:#151c17}
+:root[data-theme="dark"] .category-name,:root[data-theme="dark"] .category-amount,:root[data-theme="dark"] td{color:#c5d0c8}
+:root[data-theme="dark"] th,:root[data-theme="dark"] td,:root[data-theme="dark"] .preview-row{border-color:#303a33}
+:root[data-theme="dark"] .owner-badge,:root[data-theme="dark"] .pay-badge{background:#2b352e;color:#c1cec5}
+:root[data-theme="dark"] .owner-badge.owner-j{background:#20372a;color:#91d4aa}
+:root[data-theme="dark"] .owner-badge.owner-m{background:#3a2932;color:#e4a3bd}
+:root[data-theme="dark"] .row-edit{background:#2b352e;color:#d0dad3}
+:root[data-theme="dark"] .drop-zone{background:#18211b;border-color:#3a493f;color:#dce6df}
+:root[data-theme="dark"] .upload-mark{background:#20372a;color:#91d4aa}
+:root[data-theme="dark"] .notice{background:#382f1c;color:#f0d28e}
+:root[data-theme="dark"] .quick-icon.coral{background:#3b2825;color:#f08a7e}
+:root[data-theme="dark"] .quick-icon.green{background:#20372a;color:#91d4aa}
+:root[data-theme="dark"] .type-toggle button{color:#a3afa7}
+:root[data-theme="dark"] .type-toggle button.selected[data-direction=expense]{background:#3b2825;color:#f08a7e}
+:root[data-theme="dark"] .type-toggle button.selected[data-direction=income]{background:#20372a;color:#91d4aa}
+:root[data-theme="dark"] .empty-state p,:root[data-theme="dark"] .empty-state b{color:#c3cec6}
+:root[data-theme="dark"] footer,:root[data-theme="dark"] .login-foot{color:#8e9b92}
+.theme-toggle{position:fixed;z-index:10;top:12px;right:14px;display:grid;place-items:center;width:40px;height:40px;border:1px solid #e2e8e3;border-radius:50%;background:#ffffffed;color:#334239;font-size:18px;box-shadow:0 3px 12px #14251a14;backdrop-filter:blur(12px)}
+:root[data-theme="dark"] .theme-toggle{border-color:#3b483f;background:#202a23ed;color:#f4d782}
+.topbar{padding-right:50px}
+@media(max-width:700px){.theme-toggle{top:9px;right:9px;width:42px;height:42px}.topbar{padding-right:48px}}
