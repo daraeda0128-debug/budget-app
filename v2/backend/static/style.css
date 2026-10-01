@@ -105,3 +105,7 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 .topbar{padding-right:50px}
 @media(max-width:700px){.theme-toggle{top:9px;right:9px;width:42px;height:42px}.topbar{padding-right:48px}}
 :root[data-theme="dark"] .nav-link.active{background:#20372a;color:#91d4aa}
+/* The main navigation selects one view at a time; the dashboard stays a concise landing page. */
+.recent-panel{margin-top:14px;padding:20px}.recent-transactions{display:grid;margin-top:10px}.recent-row{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;min-height:62px;padding:10px 4px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);text-align:left}.recent-row:last-child{border-bottom:0}.recent-row:hover{background:#f6f8f6}.recent-date{color:var(--muted);font-size:11px}.recent-main{min-width:0}.recent-main b,.recent-main small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.recent-main b{font-size:12px}.recent-main small{margin-top:4px;color:var(--muted);font-size:10px}.recent-empty{padding:18px 4px;color:var(--muted);font-size:12px}.page-view{scroll-margin-top:0}
+:root[data-theme="dark"] .recent-row:hover{background:#252f28}
+@media(max-width:700px){.recent-panel{padding:15px 12px}.recent-panel .panel-heading{align-items:center}.recent-row{grid-template-columns:48px minmax(0,1fr) auto;gap:8px;min-height:64px}.recent-row .amount{font-size:11px}}
