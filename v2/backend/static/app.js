@@ -137,8 +137,7 @@ async function loadPlanning(){
     fixedItems=fixed.items||[]; $('#fixed-month-label').textContent=selectedMonth; renderFixed();
     $('#carry-form').elements.amount.value=carry.amount??'';
     $('#carry-result').textContent=carry.amount===null?'아직 이 달의 시작 잔액을 설정하지 않았어요.':`기준 잔액 ${won.format(carry.amount)}`;
-    const [eventYear,eventMonth]=selectedMonth.split('-').map(Number);
-    const shown=events.filter(e=>e.value.repeat?(eventYear>=e.value.start_year&&eventYear<=e.value.end_year&&e.value.months.includes(eventMonth)):e.value.month===selectedMonth); $('#event-list').innerHTML=shown.length?shown.map(e=>`<div class="plan-row"><span>${escapeHtml(e.value.name)} · ${e.value.direction==='income'?'수입':'지출'} ${won.format(e.value.amount)}${e.value.repeat?` · 매년 ${e.value.months.join(', ')}월 (${e.value.start_year}–${e.value.end_year})`:''}</span><button type="button" class="row-edit" data-event-id="${escapeHtml(e.id)}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 예정 항목이 없습니다.</p>';
+    const shown=events.filter(e=>e.value.repeat||e.value.month===selectedMonth); $('#event-list').innerHTML=shown.length?shown.map(e=>`<div class="plan-row"><span>${escapeHtml(e.value.name)} · ${e.value.direction==='income'?'수입':'지출'} ${won.format(e.value.amount)}${e.value.repeat?` · 매년 ${e.value.months.join(', ')}월 (${e.value.start_year}–${e.value.end_year})`:''}</span><button type="button" class="row-edit" data-event-id="${escapeHtml(e.id)}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 예정 항목이 없습니다.</p>';
     $('#forecast-list').innerHTML='<h4>향후 6개월 예상 순흐름 · 급여 예상 포함</h4>'+forecast.map(x=>`<div class="plan-row"><span>${x.month}<small>급여 예상 ${won.format(x.expected_salary)} · 고정 현금 ${won.format(x.fixed_cash)}</small></span><strong class="amount ${x.planned_net<0?'expense':'income'}">${won.format(x.planned_net)}</strong></div>`).join('');
   }catch(e){toast(e.message);}
 }
