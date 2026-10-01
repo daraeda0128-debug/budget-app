@@ -137,7 +137,8 @@ async function loadPlanning(){
     fixedItems=fixed.items||[]; $('#fixed-month-label').textContent=selectedMonth; renderFixed();
     $('#carry-form').elements.amount.value=carry.amount??'';
     $('#carry-result').textContent=carry.amount===null?'아직 이 달의 시작 잔액을 설정하지 않았어요.':`기준 잔액 ${won.format(carry.amount)}`;
-    const shown=events.filter(e=>e.value.month===selectedMonth); $('#event-list').innerHTML=shown.length?shown.map(e=>`<div class="plan-row"><span>${escapeHtml(e.value.name)} · ${e.value.direction==='income'?'수입':'지출'} ${won.format(e.value.amount)}</span><button type="button" class="row-edit" data-event-id="${escapeHtml(e.id)}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 예정 항목이 없습니다.</p>';
+    const [eventYear,eventMonth]=selectedMonth.split('-').map(Number);
+    const shown=events.filter(e=>e.value.repeat?(eventYear>=e.value.start_year&&eventYear<=e.value.end_year&&e.value.months.includes(eventMonth)):e.value.month===selectedMonth); $('#event-list').innerHTML=shown.length?shown.map(e=>`<div class="plan-row"><span>${escapeHtml(e.value.name)} · ${e.value.direction==='income'?'수입':'지출'} ${won.format(e.value.amount)}${e.value.repeat?` · 매년 ${e.value.months.join(', ')}월 (${e.value.start_year}–${e.value.end_year})`:''}</span><button type="button" class="row-edit" data-event-id="${escapeHtml(e.id)}">삭제</button></div>`).join(''):'<p class="muted">이 달에 등록한 예정 항목이 없습니다.</p>';
     $('#forecast-list').innerHTML='<h4>향후 6개월 예상 순흐름 · 급여 예상 포함</h4>'+forecast.map(x=>`<div class="plan-row"><span>${x.month}<small>급여 예상 ${won.format(x.expected_salary)} · 고정 현금 ${won.format(x.fixed_cash)}</small></span><strong class="amount ${x.planned_net<0?'expense':'income'}">${won.format(x.planned_net)}</strong></div>`).join('');
   }catch(e){toast(e.message);}
 }
@@ -150,7 +151,7 @@ $('#fixed-form').addEventListener('submit',e=>{e.preventDefault();const f=e.curr
 $('#save-fixed').addEventListener('click',async()=>{try{await api(`/api/fixed/${selectedMonth}`,{method:'PUT',body:JSON.stringify({items:fixedItems})});toast('이번 달 고정지출을 저장했어요.');await Promise.all([loadPlanning(),loadSummary()]);}catch(e){toast(e.message);}});
 $('#fixed-list').addEventListener('click',e=>{const b=e.target.closest('[data-fixed-index]');if(!b)return;fixedItems.splice(Number(b.dataset.fixedIndex),1);renderFixed();});
 $('#carry-form').addEventListener('submit',async e=>{e.preventDefault();const amount=Number(e.currentTarget.elements.amount.value);try{await api(`/api/carry/${selectedMonth}`,{method:'PUT',body:JSON.stringify({amount})});toast('이월 잔액 기준점을 저장했어요.');await Promise.all([loadPlanning(),loadSummary()]);}catch(err){toast(err.message);}});
-$('#event-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/simulation',{method:'POST',body:JSON.stringify({name:f.elements.name.value.trim(),amount:Number(f.elements.amount.value),month:f.elements.month.value,direction:f.elements.direction.value,owner:'b'})});f.reset();f.elements.month.value=selectedMonth;toast('예정 항목을 추가했어요.');await loadPlanning();}catch(err){toast(err.message);}});
+$('#event-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;const repeat=f.elements.repeat.checked;const months=f.elements.months.value.split(',').map(x=>Number(x.trim())).filter(Boolean);try{await api('/api/simulation',{method:'POST',body:JSON.stringify({name:f.elements.name.value.trim(),amount:Number(f.elements.amount.value),month:f.elements.month.value,direction:f.elements.direction.value,owner:'b',repeat,months,start_year:repeat?Number(f.elements.start_year.value):null,end_year:repeat?Number(f.elements.end_year.value):null})});f.reset();f.elements.month.value=selectedMonth;toast('예정 항목을 추가했어요.');await loadPlanning();}catch(err){toast(err.message);}});
 $('#event-list').addEventListener('click',async e=>{const b=e.target.closest('[data-event-id]');if(!b)return;try{await api(`/api/simulation/${encodeURIComponent(b.dataset.eventId)}`,{method:'DELETE'});await loadPlanning();}catch(err){toast(err.message);}});
 
 // iOS Safari zooms inputs whose text is smaller than 16px. CSS keeps mobile controls at
@@ -170,3 +171,4 @@ $('#owner-filter').addEventListener('change',loadTransactions); $('#search-input
 $('#csv-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)prepareImport(file);}); $('#cancel-import').addEventListener('click',cancelImport); $('#confirm-import').addEventListener('click',confirmImport);
 
 (async()=>{try{const user=await api('/api/me');csrf=user.csrf;showApp(user.username);}catch{showLogin();}})();
+
