@@ -1,4 +1,5 @@
 import csv
+import calendar
 import hashlib
 import io
 import json
@@ -127,6 +128,13 @@ class FinancialAccount(BaseModel):
     billing_day: int | None = Field(default=None,ge=1,le=31)
     notes: str = Field(default='',max_length=1000)
     benefits: list[CardBenefit] = Field(default_factory=list,max_length=30)
+    loan_principal: int | None = Field(default=None,gt=0,le=9_000_000_000_000_000)
+    execution_date: date | None = None
+    term_months: int | None = Field(default=None,ge=1,le=600)
+    annual_rate_bps: int | None = Field(default=None,ge=0,le=100000)
+    repayment_method: str | None = None
+    payment_day: int | None = Field(default=None,ge=1,le=31)
+    grace_months: int = Field(default=0,ge=0,le=600)
 
     @field_validator('kind')
     @classmethod
@@ -144,6 +152,14 @@ class FinancialAccount(BaseModel):
     def card_only_fields(self):
         if self.kind!='card' and (self.benefits or self.credit_limit is not None or self.billing_day is not None):
             raise ValueError('card details can only be set on a card account')
+        loan_fields=(self.loan_principal,self.execution_date,self.term_months,self.annual_rate_bps,self.repayment_method,self.payment_day)
+        if self.kind=='loan':
+            if any(v is None for v in loan_fields): raise ValueError('loan terms are required')
+            if self.repayment_method not in {'equal_payment','equal_principal','bullet','grace_equal_payment'}: raise ValueError('invalid repayment method')
+            if self.repayment_method=='grace_equal_payment' and self.grace_months>=self.term_months: raise ValueError('grace period must be shorter than the loan term')
+            if self.balance is None: self.balance=self.loan_principal
+        elif any(v is not None for v in loan_fields) or self.grace_months:
+            raise ValueError('loan terms can only be set on a loan account')
         return self
 
 class AutomaticPayment(BaseModel):
@@ -155,12 +171,29 @@ class AutomaticPayment(BaseModel):
     source_account_id: str | None = None
     related_card_id: str | None = None
     notes: str = Field(default='',max_length=500)
+    kind: str = 'autopay'
 
     @field_validator('cadence')
     @classmethod
     def valid_cadence(cls,v):
         if v not in {'monthly','quarterly','yearly','weekly'}: raise ValueError('invalid cadence')
         return v
+
+    @field_validator('kind')
+    @classmethod
+    def valid_payment_kind(cls,v):
+        if v not in {'autopay','subscription'}: raise ValueError('invalid payment kind')
+        return v
+
+class CardInstallmentPurchase(BaseModel):
+    card_account_id: str
+    name: str = Field(min_length=1,max_length=120)
+    purchase_date: date
+    total_amount: int = Field(gt=0,le=9_000_000_000_000_000)
+    installment_count: int = Field(ge=2,le=120)
+    first_billing_month: str = Field(pattern=r'^\d{4}-(0[1-9]|1[0-2])$')
+    annual_rate_bps: int = Field(default=0,ge=0,le=100000)
+    notes: str = Field(default='',max_length=500)
 
 class SimulationEvent(BaseModel):
     name: str = Field(min_length=1, max_length=160)
@@ -286,6 +319,36 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     card_pay=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category']=='카드대금')
     return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'card_usage':current_card,'card_pay':card_pay,'card_unpaid_estimate':max(0,card_usage(prior_month)-card_pay),'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
 
+def add_months(day: date, count: int) -> date:
+    serial=day.year*12+day.month-1+count; year,month=divmod(serial,12); month+=1
+    return date(year,month,min(day.day,calendar.monthrange(year,month)[1]))
+
+def loan_schedule(account):
+    principal=int(account['loan_principal']); term=int(account['term_months']); rate=int(account['annual_rate_bps'])/120000
+    method=account['repayment_method']; grace=int(account.get('grace_months') or 0) if method=='grace_equal_payment' else 0
+    amort_months=term-grace; balance=principal; monthly_payment=principal/amort_months if rate==0 else principal*rate/(1-(1+rate)**(-amort_months))
+    schedule=[]; total_interest=0
+    for index in range(1,term+1):
+        due=add_months(account['execution_date'],index); due=date(due.year,due.month,min(int(account['payment_day']),calendar.monthrange(due.year,due.month)[1])); interest=int(balance*rate+0.5)
+        if method=='bullet': principal_due=balance if index==term else 0
+        elif method=='equal_principal' or (method=='grace_equal_payment' and index<=grace): principal_due=0 if index<=grace else min(balance,principal//amort_months+(1 if index-grace==amort_months else 0))
+        else: principal_due=min(balance,max(0,int(monthly_payment+0.5)-interest))
+        if index==term: principal_due=balance
+        payment=principal_due+interest; balance=max(0,balance-principal_due); total_interest+=interest
+        schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance})
+    return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
+
+def installment_schedule(purchase):
+    total=int(purchase['total_amount']); count=int(purchase['installment_count']); rate=int(purchase['annual_rate_bps'])/120000
+    payment=total/count if rate==0 else total*rate/(1-(1+rate)**(-count)); balance=total; first_year,first_month=map(int,purchase['first_billing_month'].split('-')); rows=[]
+    for i in range(1,count+1):
+        serial=first_year*12+first_month-1+i-1; year,month=divmod(serial,12); month+=1
+        interest=int(balance*rate+0.5); principal=min(balance,max(0,int(payment+0.5)-interest))
+        if i==count: principal=balance
+        balance=max(0,balance-principal)
+        rows.append({'month':f'{year:04d}-{month:02d}','number':i,'count':count,'amount':principal+interest,'principal':principal,'interest':interest,'remaining_balance':balance})
+    return rows
+
 @app.get('/api/finance')
 def finance_hub(month: str, user=Depends(authenticated)):
     valid_month(month)
@@ -293,12 +356,15 @@ def finance_hub(month: str, user=Depends(authenticated)):
     with database() as db:
         accounts=db.execute('SELECT * FROM financial_accounts ORDER BY CASE kind WHEN \'bank\' THEN 1 WHEN \'loan\' THEN 2 WHEN \'investment\' THEN 3 ELSE 4 END,name').fetchall()
         autopays=db.execute('SELECT * FROM automatic_payments ORDER BY active DESC,debit_day NULLS LAST,name').fetchall()
+        installment_purchases=db.execute('SELECT p.*,a.name AS card_name FROM card_installments p JOIN financial_accounts a ON a.id=p.card_account_id ORDER BY first_billing_month,name').fetchall()
         usage=db.execute("SELECT payment_account_id,category,to_char(occurred_on,'YYYY-MM') month,sum(amount)::bigint amount FROM transactions WHERE payment_account_id IS NOT NULL AND payment_method='card' AND direction='expense' AND occurred_on >= %s::date AND occurred_on < (%s::date + interval '1 month') GROUP BY payment_account_id,category,3",(year_start,month_start)).fetchall()
     usage_map={}
     for row in usage: usage_map.setdefault(row['payment_account_id'],[]).append(row)
     rendered=[]
     for account in accounts:
         row=dict(account); benefits=[]
+        if row['kind']=='loan' and row['loan_principal']:
+            loan=loan_schedule(row); row.update({'maturity_date':loan['maturity_date'],'total_interest':loan['total_interest'],'loan_schedule':[x for x in loan['schedule'] if x['month']>=month]})
         if row['kind']=='card':
             txs=usage_map.get(row['id'],[]); row['month_spend']=sum(x['amount'] for x in txs if x['month']==month); row['year_spend']=sum(x['amount'] for x in txs)
             for raw in row['benefits'] or []:
@@ -307,13 +373,18 @@ def finance_hub(month: str, user=Depends(authenticated)):
                 estimate=(int(benefit.get('fixed_amount',0)) if benefit.get('reward_type')=='fixed' else eligible*int(benefit.get('rate_bps',0))//10000) if total_spend>=int(benefit.get('minimum_spend',0)) else 0
                 cap=benefit.get('cap_amount'); benefit.update({'eligible_spend':eligible,'estimated_value':min(estimate,int(cap)) if cap is not None else estimate}); benefits.append(benefit)
         row['benefits']=benefits; rendered.append(row)
-    return {'accounts':rendered,'automatic_payments':autopays,'month':month}
+    installments=[]
+    for purchase in installment_purchases:
+        for due in installment_schedule(purchase):
+            if due['month']>=month: installments.append({'id':purchase['id'],'name':purchase['name'],'card_account_id':purchase['card_account_id'],'card_name':purchase['card_name'],'notes':purchase['notes'],**due})
+    installments.sort(key=lambda x:(x['month'],x['card_name'],x['name'],x['number']))
+    return {'accounts':rendered,'automatic_payments':[p for p in autopays if p['kind']=='autopay'],'subscriptions':[p for p in autopays if p['kind']=='subscription'],'card_installment_schedule':installments,'month':month}
 
 @app.post('/api/finance/accounts',status_code=201)
 def add_financial_account(data: FinancialAccount,user=Depends(authenticated)):
     account_id=str(uuid.uuid4()); r=data.model_dump()
     with database() as db:
-        db.execute('INSERT INTO financial_accounts(id,kind,name,institution,owner,last_four,balance,credit_limit,billing_day,notes,benefits) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(account_id,r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb([b.model_dump() for b in data.benefits])))
+        db.execute('INSERT INTO financial_accounts(id,kind,name,institution,owner,last_four,balance,credit_limit,billing_day,notes,benefits,loan_principal,execution_date,term_months,annual_rate_bps,repayment_method,payment_day,grace_months) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(account_id,r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb([b.model_dump() for b in data.benefits]),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months']))
     return {'id':account_id,**r}
 
 @app.put('/api/finance/accounts/{account_id}')
@@ -323,7 +394,7 @@ def update_financial_account(account_id: str,data: FinancialAccount,user=Depends
         existing=db.execute('SELECT benefits FROM financial_accounts WHERE id=%s',(account_id,)).fetchone()
         if not existing: raise HTTPException(404,'Account not found')
         benefits=[b.model_dump() for b in data.benefits] or (existing['benefits'] or [] if data.kind=='card' else [])
-        saved=db.execute('UPDATE financial_accounts SET kind=%s,name=%s,institution=%s,owner=%s,last_four=%s,balance=%s,credit_limit=%s,billing_day=%s,notes=%s,benefits=%s WHERE id=%s RETURNING id',(r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb(benefits),account_id)).fetchone()
+        saved=db.execute('UPDATE financial_accounts SET kind=%s,name=%s,institution=%s,owner=%s,last_four=%s,balance=%s,credit_limit=%s,billing_day=%s,notes=%s,benefits=%s,loan_principal=%s,execution_date=%s,term_months=%s,annual_rate_bps=%s,repayment_method=%s,payment_day=%s,grace_months=%s WHERE id=%s RETURNING id',(r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb(benefits),r['loan_principal'],r['execution_date'],r['term_months'],r['annual_rate_bps'],r['repayment_method'],r['payment_day'],r['grace_months'],account_id)).fetchone()
     if not saved: raise HTTPException(404,'Account not found')
     return {'id':account_id,**r}
 
@@ -345,6 +416,19 @@ def delete_card_benefit(account_id: str,benefit_id: str,user=Depends(authenticat
         if len(updated)==len(benefits): raise HTTPException(404,'Benefit not found')
         db.execute('UPDATE financial_accounts SET benefits=%s WHERE id=%s',(Jsonb(updated),account_id))
 
+@app.post('/api/finance/installments',status_code=201)
+def add_card_installment(data: CardInstallmentPurchase,user=Depends(authenticated)):
+    purchase_id=str(uuid.uuid4()); r=data.model_dump()
+    with database() as db:
+        if not db.execute("SELECT id FROM financial_accounts WHERE id=%s AND kind='card'",(r['card_account_id'],)).fetchone(): raise HTTPException(422,'신용카드를 선택해 주세요.')
+        db.execute('INSERT INTO card_installments(id,card_account_id,name,purchase_date,total_amount,installment_count,first_billing_month,annual_rate_bps,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',(purchase_id,r['card_account_id'],r['name'].strip(),r['purchase_date'],r['total_amount'],r['installment_count'],r['first_billing_month'],r['annual_rate_bps'],r['notes'].strip()))
+    return {'id':purchase_id,**r}
+
+@app.delete('/api/finance/installments/{purchase_id}',status_code=204)
+def delete_card_installment(purchase_id: str,user=Depends(authenticated)):
+    with database() as db: deleted=db.execute('DELETE FROM card_installments WHERE id=%s RETURNING id',(purchase_id,)).fetchone()
+    if not deleted: raise HTTPException(404,'Installment purchase not found')
+
 @app.delete('/api/finance/accounts/{account_id}',status_code=204)
 def delete_financial_account(account_id: str,user=Depends(authenticated)):
     with database() as db: deleted=db.execute('DELETE FROM financial_accounts WHERE id=%s RETURNING id',(account_id,)).fetchone()
@@ -358,7 +442,7 @@ def add_automatic_payment(data: AutomaticPayment,user=Depends(authenticated)):
             source=db.execute('SELECT kind FROM financial_accounts WHERE id=%s',(r['source_account_id'],)).fetchone()
             if not source or source['kind'] not in {'bank','card'}: raise HTTPException(422,'출금 계좌/카드를 찾을 수 없습니다.')
         if r['related_card_id'] and not db.execute("SELECT id FROM financial_accounts WHERE id=%s AND kind='card'",(r['related_card_id'],)).fetchone(): raise HTTPException(422,'연결 카드를 찾을 수 없습니다.')
-        db.execute('INSERT INTO automatic_payments(id,name,amount,cadence,debit_day,category,source_account_id,related_card_id,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',(payment_id,r['name'].strip(),r['amount'],r['cadence'],r['debit_day'],r['category'].strip(),r['source_account_id'],r['related_card_id'],r['notes'].strip()))
+        db.execute('INSERT INTO automatic_payments(id,name,amount,cadence,debit_day,category,source_account_id,related_card_id,notes,kind) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(payment_id,r['name'].strip(),r['amount'],r['cadence'],r['debit_day'],r['category'].strip(),r['source_account_id'],r['related_card_id'],r['notes'].strip(),r['kind']))
     return {'id':payment_id,**r,'active':True}
 
 @app.delete('/api/finance/automatic-payments/{payment_id}',status_code=204)
