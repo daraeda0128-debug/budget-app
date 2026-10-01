@@ -2,7 +2,8 @@ const $ = (selector) => document.querySelector(selector);
 const won = new Intl.NumberFormat('ko-KR', {style:'currency',currency:'KRW',maximumFractionDigits:0});
 const whoNames = {j:'진수',m:'미나',b:'공동'};
 let csrf = '';
-let selectedMonth = new Date().toISOString().slice(0,7);
+const localToday=new Date();
+let selectedMonth = `${localToday.getFullYear()}-${String(localToday.getMonth()+1).padStart(2,'0')}`;
 let loadedTransactions = [];
 let importRows = [];
 let searchTimer;
@@ -74,12 +75,12 @@ function parseCsv(text) {
   const headers=rows.shift().map(x=>x.trim().toLowerCase()); return rows.map(cols=>Object.fromEntries(headers.map((h,i)=>[h,(cols[i]||'').trim()])));
 }
 function pick(row,names) { for(const name of names){const k=Object.keys(row).find(x=>x.replace(/[\s_()-]/g,'')===name.replace(/[\s_()-]/g,'')); if(k&&row[k]!=='')return row[k];} return ''; }
-function parseDate(raw) { const s=raw.replace(/[./]/g,'-').trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(!m&&/^\d{8}$/.test(s))m=[s,s.slice(0,4),s.slice(4,6),s.slice(6,8)]; if(!m)return ''; return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`; }
+function parseDate(raw) { const s=raw.replace(/[./]/g,'-').trim(); let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); if(!m&&/^\d{8}$/.test(s))m=[s,s.slice(0,4),s.slice(4,6),s.slice(6,8)]; if(!m)return ''; const value=`${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`; const d=new Date(`${value}T00:00:00`); return Number.isNaN(d.getTime())||d.toISOString().slice(0,10)!==value?'':value; }
 function categorize(name) { const rules=[[/배민|요기요|쿠팡이츠|식당|음식|마트|이마트|홈플러스|식자재/,'식비'],[/스타벅스|커피|카페|투썸/,'카페'],[/택시|버스|지하철|교통|주유|하이패스|주차/,'교통'],[/병원|약국|의원|치과/,'의료'],[/쿠팡|다이소|편의점|올리브영|쇼핑/,'쇼핑'],[/넷플릭스|유튜브|영화|구독/,'문화/여가']]; return rules.find(([re])=>re.test(name))?.[1]||'기타'; }
 function mapCsvRow(row) {
   const rawDate=pick(row,['날짜','거래일','이용일','승인일','date']); const dateValue=parseDate(rawDate);
   const name=pick(row,['가맹점명','사용처','내용','적요','상호','거래내용','name']);
-  const rawAmount=pick(row,['이용금액','승인금액','거래금액','금액','amount']).replace(/[₩,\s]/g,''); const signed=Number(rawAmount);
+  const rawAmount=pick(row,['이용금액','승인금액','거래금액','금액','amount']).replace(/[^0-9+-.]/g,''); const signed=Number(rawAmount);
   if(!dateValue||!name||!Number.isFinite(signed)||signed===0) return null;
   const rawDirection=pick(row,['구분','유형','type','direction']); const isIncome=/수입|입금|income/i.test(rawDirection)||signed<0;
   const rawOwner=pick(row,['담당','누가','owner']); const owner=/미나|mina|^m$/i.test(rawOwner)?'m':/진수|jinsu|^j$/i.test(rawOwner)?'j':'b';

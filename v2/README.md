@@ -1,6 +1,6 @@
 # Budget V2 — 준비 단계
 
-기존 루트 index.html, main, Firebase는 보존한다. 이 디렉터리는 인증/API/DB와 이전 도구의 첫 단계다. 기존 UI를 이 서버에서 제공하지 않는다. 거래 쓰기, 새 대시보드, 급여 발생, 시뮬레이션 계산은 후속 단계이며 아직 전환할 수 없다.
+기존 루트 index.html, main, Firebase는 보존한다. V2에는 세션 로그인 화면, 월별 수입·지출·고정 현금지출 요약, 카테고리별 소비, 거래 검색/담당자 필터, 거래 추가/수정/삭제, CSV 미리보기 및 멱등 일괄 가져오기가 구현되어 있다. 모든 거래 입력은 FastAPI와 PostgreSQL에 저장된다. 급여 자동반영, 이월 계산, 고정지출 편집, 시뮬레이션 및 상세 현금흐름은 다음 단계이며 기존 서비스와 동시 운영 중이다.
 
 ## 실제 맥미니 점검 (2026-10-01 KST)
 
@@ -60,4 +60,4 @@ Ollama는 macOS 네이티브 유지. API의 OLLAMA_URL은 host.docker.internal�
 
 백업: `docker compose exec -T db pg_dump -U budget -d budget -Fc > private/budget.dump` (POSIX 셸). 배포 전 별도 DB에 pg_restore 복구시험. rollback은 이전 사이트로 복귀하되 V2 신규 거래를 먼저 export/대조하고 양쪽 동시쓰기 금지. `compose down`은 볼륨 유지; `down -v` 사용 금지. 001.sql은 첫 볼륨 생성에만 실행되므로 후속 스키마 변경은 버전 migration 필요.
 
-공식 참고: https://docs.docker.com/desktop/features/networking/networking-how-tos/ , https://docs.ollama.com/faq
+초기 사용자 계정은 맥미니 터미널에서 `cd ~/Developer/budget-app-v2/v2 && /usr/local/bin/docker --context desktop-linux compose exec api python create_user.py jinsu`를 실행해 직접 설정한다. 현재 데이터베이스에는 사용자가 아직 없다. 비밀번호는 화면 입력으로만 전달되며 채팅에 보낼 필요가 없다.\r\n\r\n공식 참고: https://docs.docker.com/desktop/features/networking/networking-how-tos/ , https://docs.ollama.com/faq
