@@ -330,26 +330,44 @@ def add_months(day: date, count: int) -> date:
     serial=day.year*12+day.month-1+count; year,month=divmod(serial,12); month+=1
     return date(year,month,min(day.day,calendar.monthrange(year,month)[1]))
 
+def actual_actual_interest(balance, annual_rate, start, end):
+    """Accrue actual/actual interest, truncating once per distinct year-length basis."""
+    interest=0; cursor=start; basis_days=0; basis=None
+    while cursor<end:
+        segment_end=min(end,date(cursor.year+1,1,1)); year_days=366 if calendar.isleap(cursor.year) else 365
+        if basis is not None and basis!=year_days:
+            interest+=int(balance*annual_rate*basis_days/basis); basis_days=0
+        basis=year_days; basis_days+=(segment_end-cursor).days; cursor=segment_end
+    if basis_days: interest+=int(balance*annual_rate*basis_days/basis)
+    return interest
+
 def loan_schedule(account):
     principal=int(account['loan_principal']); term=int(account['term_months']); rate=int(account['annual_rate_bps'])/120000
+    annual_rate=int(account['annual_rate_bps'])/10000
     method=account['repayment_method']; grace=int(account.get('grace_months') or 0) if method=='grace_equal_payment' else 0
-    amort_months=term-grace; balance=principal; monthly_payment=principal/amort_months if rate==0 else principal*rate/(1-(1+rate)**(-amort_months))
+    amort_months=term-grace; balance=principal
+    monthly_payment=int(principal/amort_months) if rate==0 else int(principal*rate/(1-(1+rate)**(-amort_months)))
     defer_start=account.get('principal_defer_start') if method=='principal_defer' else None
     defer_months=int(account.get('principal_defer_months') or 0) if method=='principal_defer' else 0
     defer_end=add_months(defer_start,defer_months) if defer_start and defer_months else None
-    schedule=[]; total_interest=0
+    schedule=[]; total_interest=0; accrual_start=account['execution_date']; resumed_payment=None
     for index in range(1,term+1):
-        due=add_months(account['execution_date'],index); due=date(due.year,due.month,min(int(account['payment_day']),calendar.monthrange(due.year,due.month)[1])); interest=int(balance*rate+0.5)
+        due=add_months(account['execution_date'],index); due=date(due.year,due.month,min(int(account['payment_day']),calendar.monthrange(due.year,due.month)[1]))
+        interest=actual_actual_interest(balance,annual_rate,accrual_start,due)
         deferred=bool(defer_start and due>=defer_start and due<defer_end)
         if deferred: principal_due=0
         elif method=='principal_defer' and defer_end and due>=defer_end:
-            remaining=max(1,term-index+1); resumed_payment=balance/remaining if rate==0 else balance*rate/(1-(1+rate)**(-remaining)); principal_due=min(balance,max(0,int(resumed_payment+0.5)-interest))
+            if resumed_payment is None:
+                remaining=max(1,term-index+1)
+                resumed_payment=int(balance/remaining) if rate==0 else int(balance*rate/(1-(1+rate)**(-remaining)))
+            principal_due=min(balance,max(0,resumed_payment-interest))
         elif method=='bullet': principal_due=balance if index==term else 0
-        elif method=='equal_principal' or (method=='grace_equal_payment' and index<=grace): principal_due=0 if index<=grace else min(balance,principal//amort_months+(1 if index-grace==amort_months else 0))
-        else: principal_due=min(balance,max(0,int(monthly_payment+0.5)-interest))
+        elif method=='equal_principal' or (method=='grace_equal_payment' and index<=grace): principal_due=0 if index<grace else min(balance,principal//amort_months+(1 if index-grace==amort_months else 0))
+        else: principal_due=min(balance,max(0,monthly_payment-interest))
         if index==term: principal_due=balance
         payment=principal_due+interest; balance=max(0,balance-principal_due); total_interest+=interest
         schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance,'principal_deferred':deferred})
+        accrual_start=due
     return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
 
 def installment_schedule(purchase):
