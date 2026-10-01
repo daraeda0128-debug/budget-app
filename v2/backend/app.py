@@ -546,7 +546,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
         events=db.execute('SELECT id,value FROM simulation_events').fetchall()
         fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
         salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
-        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4,5",(start+'-01',start+'-01',months)).fetchall()
+        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,5",(start+'-01',start+'-01',months)).fetchall()
     salary=salary_row['value'] if salary_row else {'enabled':False,'salary_j':0,'salary_m':0}
     actual={m:{'income':0,'expense':0,'cash_expense':0} for m in month_list}
     for x in tx:
