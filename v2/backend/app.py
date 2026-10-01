@@ -371,7 +371,7 @@ def finance_hub(month: str, user=Depends(authenticated)):
         accounts=db.execute('SELECT * FROM financial_accounts ORDER BY CASE kind WHEN \'bank\' THEN 1 WHEN \'loan\' THEN 2 WHEN \'investment\' THEN 3 ELSE 4 END,name').fetchall()
         autopays=db.execute('SELECT * FROM automatic_payments ORDER BY active DESC,debit_day NULLS LAST,name').fetchall()
         installment_purchases=db.execute('SELECT p.*,a.name AS card_name FROM card_installments p JOIN financial_accounts a ON a.id=p.card_account_id ORDER BY first_billing_month,name').fetchall()
-        usage=db.execute("SELECT payment_account_id,category,to_char(occurred_on,'YYYY-MM') month,sum(amount)::bigint amount FROM transactions WHERE payment_account_id IS NOT NULL AND payment_method='card' AND direction='expense' AND occurred_on >= %s::date AND occurred_on < (%s::date + interval '1 month') GROUP BY payment_account_id,category,3",(year_start,month_start)).fetchall()
+        usage=db.execute("SELECT payment_account_id,category,to_char(occurred_on,'YYYY-MM') AS usage_month,sum(amount)::bigint amount FROM transactions WHERE payment_account_id IS NOT NULL AND payment_method='card' AND direction='expense' AND occurred_on >= %s::date AND occurred_on < (%s::date + interval '1 month') GROUP BY payment_account_id,category,3",(year_start,month_start)).fetchall()
     usage_map={}
     for row in usage: usage_map.setdefault(row['payment_account_id'],[]).append(row)
     rendered=[]
@@ -380,9 +380,9 @@ def finance_hub(month: str, user=Depends(authenticated)):
         if row['kind']=='loan' and row['loan_principal']:
             loan=loan_schedule(row); row.update({'maturity_date':loan['maturity_date'],'total_interest':loan['total_interest'],'loan_schedule':[x for x in loan['schedule'] if x['month']>=month]})
         if row['kind']=='card':
-            txs=usage_map.get(row['id'],[]); row['month_spend']=sum(x['amount'] for x in txs if x['month']==month); row['year_spend']=sum(x['amount'] for x in txs)
+            txs=usage_map.get(row['id'],[]); row['month_spend']=sum(x['amount'] for x in txs if x['usage_month']==month); row['year_spend']=sum(x['amount'] for x in txs)
             for raw in row['benefits'] or []:
-                benefit=dict(raw); selected=[x for x in txs if benefit.get('category') in {'*',x['category']} and (benefit.get('period')=='yearly' or x['month']==month)]
+                benefit=dict(raw); selected=[x for x in txs if benefit.get('category') in {'*',x['category']} and (benefit.get('period')=='yearly' or x['usage_month']==month)]
                 eligible=sum(x['amount'] for x in selected); total_spend=row['year_spend'] if benefit.get('period')=='yearly' else row['month_spend']
                 estimate=(int(benefit.get('fixed_amount',0)) if benefit.get('reward_type')=='fixed' else eligible*int(benefit.get('rate_bps',0))//10000) if total_spend>=int(benefit.get('minimum_spend',0)) else 0
                 cap=benefit.get('cap_amount'); benefit.update({'eligible_spend':eligible,'estimated_value':min(estimate,int(cap)) if cap is not None else estimate}); benefits.append(benefit)
