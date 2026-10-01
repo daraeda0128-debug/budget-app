@@ -6,7 +6,8 @@
         Strict-Transport-Security "max-age=31536000"
         X-Content-Type-Options nosniff
         Referrer-Policy no-referrer
-        Content-Security-Policy "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        X-Robots-Tag "noindex, nofollow"
+        Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
     }
     reverse_proxy api:8000
 }

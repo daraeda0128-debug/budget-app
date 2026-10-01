@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#f6f7f5">
+  <title>월렛 | 진수·미나</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main id="login-view" class="login-shell" hidden>
+    <section class="login-card">
+      <div class="brand-mark">월</div>
+      <p class="eyebrow">JINSU & MINA</p>
+      <h1>가계부에 로그인</h1>
+      <p class="muted">계정 정보를 입력해 주세요.</p>
+      <form id="login-form" class="stack">
+        <label>아이디<input name="username" autocomplete="username" required maxlength="100"></label>
+        <label>비밀번호<input name="password" type="password" autocomplete="current-password" required maxlength="1024"></label>
+        <button class="button primary wide" type="submit">로그인</button>
+        <p id="login-error" class="form-error" role="alert"></p>
+      </form>
+    </section>
+    <p class="login-foot">개인 금융 정보는 이 서버에 안전하게 보관됩니다.</p>
+  </main>
+
+  <div id="app-view" class="app-shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#"><span class="brand-mark small">월</span><span>월렛<span class="brand-sub">JINSU & MINA</span></span></a>
+      <nav><a class="nav-link active" href="#overview">▦ <span>요약</span></a><a class="nav-link" href="#transactions">↕ <span>거래 내역</span></a><a class="nav-link" href="#import">⇧ <span>CSV 가져오기</span></a></nav>
+      <div class="sidebar-note"><span class="status-dot"></span> 개인 서버에 저장 중</div>
+      <button id="logout-button" class="logout-button">로그아웃</button>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar"><div><p class="eyebrow">HOUSEHOLD FINANCE</p><h1>진수 · 미나 가계부</h1></div><div class="top-actions"><span id="user-name" class="user-chip"></span><button id="add-button" class="button primary">＋ 거래 추가</button></div></header>
+      <section id="overview" class="overview-section">
+        <div class="section-heading"><div><p class="eyebrow">MONTHLY OVERVIEW</p><h2>이번 달 흐름</h2></div><div class="month-control"><button id="prev-month" class="icon-button" aria-label="지난 달">‹</button><input id="month-picker" type="month" aria-label="조회 월"><button id="next-month" class="icon-button" aria-label="다음 달">›</button></div></div>
+        <div class="summary-grid">
+          <article class="summary-card income-card"><span class="summary-label">수입</span><strong id="summary-income">₩0</strong><span class="summary-caption">등록된 수입</span></article>
+          <article class="summary-card expense-card"><span class="summary-label">변동 지출</span><strong id="summary-expenses">₩0</strong><span class="summary-caption">대납·정산·부업 제외</span></article>
+          <article class="summary-card fixed-card"><span class="summary-label">현금 고정지출</span><strong id="summary-fixed">₩0</strong><span class="summary-caption">카드 고정지출은 별도 집계</span></article>
+          <article class="summary-card balance-card"><span class="summary-label">월 순흐름</span><strong id="summary-net">₩0</strong><span class="summary-caption">이월 잔액 전 기준</span></article>
+        </div>
+        <div class="content-grid">
+          <section class="panel category-panel"><div class="panel-heading"><div><h3>카테고리별 지출</h3><p>선택한 달의 소비</p></div></div><div id="category-list" class="category-list"></div></section>
+          <section class="panel quick-panel"><div class="panel-heading"><div><h3>빠른 입력</h3><p>거래를 바로 기록</p></div></div><button class="quick-action" data-type="expense"><span class="quick-icon coral">−</span><span><b>지출 입력</b><small>카드·현금 지출</small></span><span class="arrow">↗</span></button><button class="quick-action" data-type="income"><span class="quick-icon green">＋</span><span><b>수입 입력</b><small>급여·부업·기타 수입</small></span><span class="arrow">↗</span></button><div id="pass-summary" class="pass-summary" hidden></div></section>
+        </div>
+      </section>
+
+      <section id="transactions" class="panel transactions-panel">
+        <div class="panel-heading transaction-heading"><div><p class="eyebrow">LEDGER</p><h2>거래 내역</h2></div><div class="filters"><input id="search-input" type="search" placeholder="상호·카테고리 검색" aria-label="거래 검색"><select id="owner-filter" aria-label="담당자"><option value="">전체</option><option value="j">진수</option><option value="m">미나</option><option value="b">공동</option></select></div></div>
+        <div class="table-wrap"><table><thead><tr><th>날짜</th><th>내용</th><th>카테고리</th><th>담당</th><th>결제</th><th class="amount-col">금액</th><th></th></tr></thead><tbody id="transaction-rows"></tbody></table><div id="empty-state" class="empty-state" hidden><span>✳</span><b>아직 거래가 없어요</b><p>첫 거래를 기록하거나 CSV를 가져와 보세요.</p><button class="button secondary" id="empty-add">거래 추가</button></div></div>
+      </section>
+
+      <section id="import" class="panel import-panel"><div class="panel-heading"><div><p class="eyebrow">STATEMENT IMPORT</p><h2>CSV 가져오기</h2><p>은행·카드사 CSV를 미리 확인하고 한 번에 등록합니다.</p></div></div><label class="drop-zone" for="csv-file"><span class="upload-mark">⇧</span><b>CSV 파일을 선택하세요</b><small>파일은 이 화면에서만 읽고 서버에 저장하지 않습니다.</small><input id="csv-file" type="file" accept=".csv,text/csv"></label><div id="import-preview" class="import-preview" hidden><div class="preview-top"><div><b id="preview-title">가져오기 미리보기</b><small id="preview-count"></small></div><div class="preview-actions"><button id="cancel-import" class="button secondary">취소</button><button id="confirm-import" class="button primary">가져오기</button></div></div><div id="preview-warnings" class="notice" hidden></div><div id="preview-rows" class="preview-rows"></div></div></section>
+      <footer>월렛 · 거래 데이터는 개인 PostgreSQL에 저장됩니다.</footer>
+    </main>
+  </div>
+
+  <dialog id="transaction-dialog" class="transaction-dialog"><form id="transaction-form" method="dialog"><div class="dialog-heading"><div><p class="eyebrow">TRANSACTION</p><h2 id="dialog-title">거래 추가</h2></div><button type="button" id="close-dialog" class="icon-button" aria-label="닫기">×</button></div><div class="type-toggle"><button type="button" data-direction="expense" class="selected">지출</button><button type="button" data-direction="income">수입</button></div><input type="hidden" name="direction" value="expense"><input type="hidden" name="id"><div class="form-grid"><label>날짜<input name="occurred_on" type="date" required></label><label>금액<input name="amount" type="number" min="1" step="1" inputmode="numeric" placeholder="0" required></label><label class="full-field">내용<input name="name" maxlength="160" placeholder="예: 점심 식사" required></label><label>카테고리<input name="category" maxlength="80" placeholder="예: 식비" required></label><label>누가<select name="owner"><option value="j">진수</option><option value="m">미나</option><option value="b">공동</option></select></label><label>결제수단<select name="payment_method"><option value="cash">현금·이체</option><option value="card">카드</option><option value="">미정</option></select></label><label class="full-field">메모<input name="memo" maxlength="1000" placeholder="필요하면 메모를 적어 주세요"></label></div><p id="transaction-error" class="form-error" role="alert"></p><div class="dialog-actions"><button type="button" id="delete-transaction" class="button danger" hidden>삭제</button><span></span><button type="button" id="cancel-dialog" class="button secondary">취소</button><button type="submit" class="button primary">저장</button></div></form></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
