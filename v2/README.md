@@ -7,10 +7,10 @@
 - arm64 / macOS 26.6.2 / RAM 32GiB / 여유 디스크 약 211GiB.
 - Docker Desktop 설치, CLI 29.4.1 / Compose 5.1.3. SSH PATH에 /usr/local/bin이 빠짐. 최초 확인 시 엔진 중지 상태. Docker Desktop 시작 후 재검증.
 - 기존 7 Days 서버 26900, 8081; ControlCenter 5000/7000; NoMachine 7003 등. 관측된 TCP 목록에서 80/443은 비어 있음. UDP/관리자 전용 프로세스 및 공유기 포워딩은 별도 확인 필요.
-- DNS 호스트(glue) 화면에는 `wallet.picknote.store → 59.17.107.163`가 추가됐지만, 실제 웹 서비스용 A 레코드가 아니라는 점을 DNS 조회로 확인함. 권한 DNS에서 A 레코드는 아직 조회되지 않음.
+- DNS 레코드 화면에서 wallet A 레코드가 추가됐고, 권한 네임서버 및 일반 조회 모두 `wallet.picknote.store → 59.17.107.163`을 반환함. AAAA 없음. 맥미니 공인 IPv4와 일치.
 - Ollama 두 프로세스: IPv6 *:11434와 IPv4 127.0.0.1:11434. 기존 프로세스를 임의 중단하지 않는다. 전체 인터페이스 리스너 원인을 확인하고 호스트 방화벽과 IPv6 접근을 검증하기 전 LLM 기능은 활성화하지 않는다.
 
-Docker Desktop 시작 후 기존 carsystem-backend(3000 공개), carsystem-postgres(5432 공개)가 확인됨. 기존 서비스 변경 없음. V2는 별도 budget-v2 프로젝트 및 볼륨, DB/API host ports 없이 기동 검증 완료. .env는 wallet.picknote.store로 설정 예정이며 무작위 DB 암호는 저장소에 포함하지 않음. 실제 A 레코드, 공유기 포트 전달, 공인 HTTPS는 미확인.
+Docker Desktop 시작 후 기존 carsystem-backend(3000 공개), carsystem-postgres(5432 공개)가 확인됨. 기존 서비스 변경 없음. V2는 별도 budget-v2 프로젝트 및 볼륨, DB/API host ports 없이 기동 검증 완료. .env는 wallet.picknote.store로 설정 예정이며 무작위 DB 암호는 저장소에 포함하지 않음. DNS A 레코드가 전파되어 조회됨. 공유기 포트 전달 및 공인 HTTPS는 미확인.
 
 검증 결과: 이전 단위 테스트 5개 통과; ARM64 API 이미지 빌드; DB healthcheck; 실제 세션 로그인/보호 API/Origin 거부/CSRF 거부/로그아웃 세션 무효화; 실제 SQL 이전 건수·합계 대조 및 동일 batch 재실행 모두 통과. 샘플 및 테스트 계정 정리 후 users/transactions 0건 확인. Caddy validate 통과 (공인 인증서 발급은 미검증). API 컨테이너에서 host.docker.internal:11434/api/version 접속 성공, Ollama 0.33.3. 호스트/LAN 방화벽 범위는 아직 미검증.
 
@@ -27,7 +27,7 @@ cp .env.example .env
 /usr/local/bin/docker --context desktop-linux compose exec api python create_user.py jinsu
 ```
 
-첨부된 화면은 DNS 호스트(네임서버 글루) 추가 화면이며 웹 서비스 주소용 A 레코드가 아니다. WordPress.com Hosting Dashboard → Domains → picknote.store → Settings → DNS records → Add record에서 Type `A`, Name `wallet`, Points to `59.17.107.163`으로 추가해야 한다. 기존 DNS 호스트 레코드는 여기서 삭제하지 않는다. 저장 뒤 `wallet.picknote.store` A 조회가 IP를 반환하는지 확인한다. 전파는 최대 72시간이 걸릴 수 있다. 공유기에서 80/443만 맥미니 LAN 주소로 전달하고 5432/8000/11434는 전달하지 않는다. IPv6 AAAA는 추가하지 않았다. 공인 인증서는 A 레코드 전파와 외부 80/443 연결 확인 후 발급한다. 집 공인 IP가 바뀌면 A 레코드도 갱신한다. IPv6는 별도로 방화벽 확인. Docker Desktop 자동시작과 맥미니 절전/재부팅 후 복구를 검증한다.
+처음 첨부된 화면은 DNS 호스트(글루)였지만, 후속 DNS 레코드 화면에서 실제 A 레코드를 추가했다. 권한 네임서버 조회 결과 `wallet.picknote.store A 59.17.107.163` 확인. AAAA는 없음. 공유기에서 80/443만 맥미니 LAN 주소로 전달하고 5432/8000/11434는 전달하지 않는다. IPv6 AAAA는 추가하지 않았다. 공인 인증서는 A 레코드 전파와 외부 80/443 연결 확인 후 발급한다. 집 공인 IP가 바뀌면 A 레코드도 갱신한다. IPv6는 별도로 방화벽 확인. Docker Desktop 자동시작과 맥미니 절전/재부팅 후 복구를 검증한다.
 
 서버 세션은 DB의 해시 토큰, Secure/HttpOnly/SameSite 쿠키, 12시간 만료, 로그인 시 교체, 로그아웃 시 폐기, Origin+CSRF 검증. Argon2 암호 해시와 계정별 지수 지연 적용. 공개 전 추가 IP 단위 제한/감사 기록/암호 변경 및 세션 청소를 구현한다. passkeys 테이블은 향후 WebAuthn용이며 등록/인증 challenge와 RP ID 검증은 미구현이다.
 
