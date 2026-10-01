@@ -49,6 +49,7 @@ async function loadSummary() {
     $('#summary-fixed').textContent=won.format(s.fixed_cash);
     const net=$('#summary-net'); net.textContent=won.format(s.net_before_carry); net.classList.toggle('negative',s.net_before_carry<0);
     $('#summary-fixed').parentElement.querySelector('.summary-caption').textContent=`시작잔액 ${s.carry_in===null?'미설정':won.format(s.carry_in)} · 마감 ${s.closing_balance===null?'미설정':won.format(s.closing_balance)}`;
+    $('#card-summary-caption').textContent=`이번 달 카드 사용 ${won.format(s.card_usage||0)} · 납부 ${won.format(s.card_pay||0)} · 이전 달 미결제 추정 ${won.format(s.card_unpaid_estimate||0)}`;
     const cats=$('#category-list');
     if (!s.categories.length) cats.innerHTML='<div class="category-empty">아직 기록된 지출이 없어요.</div>';
     else { const max=Math.max(...s.categories.map(x=>x.amount),1); cats.innerHTML=s.categories.slice(0,7).map((x,i)=>`<div class="category-row"><span class="category-name">${escapeHtml(x.name)}</span><span class="category-track"><span class="category-fill" style="display:block;width:${Math.max(4,Math.round(x.amount/max*100))}%;background:${['#6b9e7c','#d69864','#779bb0','#c17f8d','#a692bf','#8ca99e','#c0a75f'][i%7]}"></span></span><span class="category-amount">${won.format(x.amount)}</span></div>`).join(''); }
