@@ -58,6 +58,7 @@ class Transaction(BaseModel):
     direction: str
     owner: str
     payment_method: str | None = None
+    payment_account_id: str | None = None
     memo: str = Field(default='', max_length=1000)
 
     @field_validator('direction')
@@ -90,6 +91,76 @@ class SalarySettings(BaseModel):
 
 class CarryAnchor(BaseModel):
     amount: int = Field(ge=-9_000_000_000_000_000, le=9_000_000_000_000_000)
+
+class CardBenefit(BaseModel):
+    id: str = Field(default_factory=lambda:str(uuid.uuid4()))
+    name: str = Field(min_length=1, max_length=120)
+    category: str = Field(default='*', max_length=80)
+    reward_type: str = 'rate'
+    rate_bps: int = Field(default=0, ge=0, le=10000)
+    fixed_amount: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
+    cap_amount: int | None = Field(default=None, ge=0, le=9_000_000_000_000_000)
+    minimum_spend: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
+    period: str = 'monthly'
+    notes: str = Field(default='', max_length=500)
+
+    @field_validator('reward_type')
+    @classmethod
+    def valid_reward_type(cls,v):
+        if v not in {'rate','fixed'}: raise ValueError('invalid reward type')
+        return v
+
+    @field_validator('period')
+    @classmethod
+    def valid_benefit_period(cls,v):
+        if v not in {'monthly','yearly'}: raise ValueError('invalid benefit period')
+        return v
+
+class FinancialAccount(BaseModel):
+    kind: str
+    name: str = Field(min_length=1,max_length=120)
+    institution: str = Field(default='',max_length=120)
+    owner: str = 'b'
+    last_four: str = Field(default='',pattern=r'^(|\d{4})$')
+    balance: int | None = Field(default=None,ge=0,le=9_000_000_000_000_000)
+    credit_limit: int | None = Field(default=None,ge=0,le=9_000_000_000_000_000)
+    billing_day: int | None = Field(default=None,ge=1,le=31)
+    notes: str = Field(default='',max_length=1000)
+    benefits: list[CardBenefit] = Field(default_factory=list,max_length=30)
+
+    @field_validator('kind')
+    @classmethod
+    def valid_account_kind(cls,v):
+        if v not in {'bank','loan','investment','card'}: raise ValueError('invalid account kind')
+        return v
+
+    @field_validator('owner')
+    @classmethod
+    def valid_account_owner(cls,v):
+        if v not in {'j','m','b'}: raise ValueError('invalid owner')
+        return v
+
+    @model_validator(mode='after')
+    def card_only_fields(self):
+        if self.kind!='card' and (self.benefits or self.credit_limit is not None or self.billing_day is not None):
+            raise ValueError('card details can only be set on a card account')
+        return self
+
+class AutomaticPayment(BaseModel):
+    name: str = Field(min_length=1,max_length=120)
+    amount: int = Field(default=0,ge=0,le=9_000_000_000_000_000)
+    cadence: str
+    debit_day: int | None = Field(default=None,ge=1,le=31)
+    category: str = Field(default='기타',max_length=80)
+    source_account_id: str | None = None
+    related_card_id: str | None = None
+    notes: str = Field(default='',max_length=500)
+
+    @field_validator('cadence')
+    @classmethod
+    def valid_cadence(cls,v):
+        if v not in {'monthly','quarterly','yearly','weekly'}: raise ValueError('invalid cadence')
+        return v
 
 class SimulationEvent(BaseModel):
     name: str = Field(min_length=1, max_length=160)
@@ -215,6 +286,90 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     card_pay=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category']=='카드대금')
     return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'card_usage':current_card,'card_pay':card_pay,'card_unpaid_estimate':max(0,card_usage(prior_month)-card_pay),'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
 
+@app.get('/api/finance')
+def finance_hub(month: str, user=Depends(authenticated)):
+    valid_month(month)
+    year_start=month[:4]+'-01-01'; month_start=month+'-01'
+    with database() as db:
+        accounts=db.execute('SELECT * FROM financial_accounts ORDER BY CASE kind WHEN \'bank\' THEN 1 WHEN \'loan\' THEN 2 WHEN \'investment\' THEN 3 ELSE 4 END,name').fetchall()
+        autopays=db.execute('SELECT * FROM automatic_payments ORDER BY active DESC,debit_day NULLS LAST,name').fetchall()
+        usage=db.execute("SELECT payment_account_id,category,to_char(occurred_on,'YYYY-MM') month,sum(amount)::bigint amount FROM transactions WHERE payment_account_id IS NOT NULL AND payment_method='card' AND direction='expense' AND occurred_on >= %s::date AND occurred_on < (%s::date + interval '1 month') GROUP BY payment_account_id,category,3",(year_start,month_start)).fetchall()
+    usage_map={}
+    for row in usage: usage_map.setdefault(row['payment_account_id'],[]).append(row)
+    rendered=[]
+    for account in accounts:
+        row=dict(account); benefits=[]
+        if row['kind']=='card':
+            txs=usage_map.get(row['id'],[]); row['month_spend']=sum(x['amount'] for x in txs if x['month']==month); row['year_spend']=sum(x['amount'] for x in txs)
+            for raw in row['benefits'] or []:
+                benefit=dict(raw); selected=[x for x in txs if benefit.get('category') in {'*',x['category']} and (benefit.get('period')=='yearly' or x['month']==month)]
+                eligible=sum(x['amount'] for x in selected); total_spend=row['year_spend'] if benefit.get('period')=='yearly' else row['month_spend']
+                estimate=(int(benefit.get('fixed_amount',0)) if benefit.get('reward_type')=='fixed' else eligible*int(benefit.get('rate_bps',0))//10000) if total_spend>=int(benefit.get('minimum_spend',0)) else 0
+                cap=benefit.get('cap_amount'); benefit.update({'eligible_spend':eligible,'estimated_value':min(estimate,int(cap)) if cap is not None else estimate}); benefits.append(benefit)
+        row['benefits']=benefits; rendered.append(row)
+    return {'accounts':rendered,'automatic_payments':autopays,'month':month}
+
+@app.post('/api/finance/accounts',status_code=201)
+def add_financial_account(data: FinancialAccount,user=Depends(authenticated)):
+    account_id=str(uuid.uuid4()); r=data.model_dump()
+    with database() as db:
+        db.execute('INSERT INTO financial_accounts(id,kind,name,institution,owner,last_four,balance,credit_limit,billing_day,notes,benefits) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(account_id,r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb([b.model_dump() for b in data.benefits])))
+    return {'id':account_id,**r}
+
+@app.put('/api/finance/accounts/{account_id}')
+def update_financial_account(account_id: str,data: FinancialAccount,user=Depends(authenticated)):
+    r=data.model_dump()
+    with database() as db:
+        existing=db.execute('SELECT benefits FROM financial_accounts WHERE id=%s',(account_id,)).fetchone()
+        if not existing: raise HTTPException(404,'Account not found')
+        benefits=[b.model_dump() for b in data.benefits] or (existing['benefits'] or [] if data.kind=='card' else [])
+        saved=db.execute('UPDATE financial_accounts SET kind=%s,name=%s,institution=%s,owner=%s,last_four=%s,balance=%s,credit_limit=%s,billing_day=%s,notes=%s,benefits=%s WHERE id=%s RETURNING id',(r['kind'],r['name'].strip(),r['institution'].strip(),r['owner'],r['last_four'],r['balance'],r['credit_limit'],r['billing_day'],r['notes'].strip(),Jsonb(benefits),account_id)).fetchone()
+    if not saved: raise HTTPException(404,'Account not found')
+    return {'id':account_id,**r}
+
+@app.post('/api/finance/accounts/{account_id}/benefits',status_code=201)
+def add_card_benefit(account_id: str,data: CardBenefit,user=Depends(authenticated)):
+    with database() as db:
+        row=db.execute("SELECT benefits FROM financial_accounts WHERE id=%s AND kind='card' FOR UPDATE",(account_id,)).fetchone()
+        if not row: raise HTTPException(404,'Card not found')
+        benefits=row['benefits'] or []; benefits.append(data.model_dump())
+        db.execute('UPDATE financial_accounts SET benefits=%s WHERE id=%s',(Jsonb(benefits),account_id))
+    return data.model_dump()
+
+@app.delete('/api/finance/accounts/{account_id}/benefits/{benefit_id}',status_code=204)
+def delete_card_benefit(account_id: str,benefit_id: str,user=Depends(authenticated)):
+    with database() as db:
+        row=db.execute("SELECT benefits FROM financial_accounts WHERE id=%s AND kind='card' FOR UPDATE",(account_id,)).fetchone()
+        if not row: raise HTTPException(404,'Card not found')
+        benefits=row['benefits'] or []; updated=[b for b in benefits if b.get('id')!=benefit_id]
+        if len(updated)==len(benefits): raise HTTPException(404,'Benefit not found')
+        db.execute('UPDATE financial_accounts SET benefits=%s WHERE id=%s',(Jsonb(updated),account_id))
+
+@app.delete('/api/finance/accounts/{account_id}',status_code=204)
+def delete_financial_account(account_id: str,user=Depends(authenticated)):
+    with database() as db: deleted=db.execute('DELETE FROM financial_accounts WHERE id=%s RETURNING id',(account_id,)).fetchone()
+    if not deleted: raise HTTPException(404,'Account not found')
+
+@app.post('/api/finance/automatic-payments',status_code=201)
+def add_automatic_payment(data: AutomaticPayment,user=Depends(authenticated)):
+    payment_id=str(uuid.uuid4()); r=data.model_dump()
+    with database() as db:
+        if r['source_account_id'] and not db.execute('SELECT id FROM financial_accounts WHERE id=%s',(r['source_account_id'],)).fetchone(): raise HTTPException(422,'출금 계좌/카드를 찾을 수 없습니다.')
+        if r['related_card_id'] and not db.execute("SELECT id FROM financial_accounts WHERE id=%s AND kind='card'",(r['related_card_id'],)).fetchone(): raise HTTPException(422,'연결 카드를 찾을 수 없습니다.')
+        db.execute('INSERT INTO automatic_payments(id,name,amount,cadence,debit_day,category,source_account_id,related_card_id,notes) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)',(payment_id,r['name'].strip(),r['amount'],r['cadence'],r['debit_day'],r['category'].strip(),r['source_account_id'],r['related_card_id'],r['notes'].strip()))
+    return {'id':payment_id,**r,'active':True}
+
+@app.delete('/api/finance/automatic-payments/{payment_id}',status_code=204)
+def delete_automatic_payment(payment_id: str,user=Depends(authenticated)):
+    with database() as db: deleted=db.execute('DELETE FROM automatic_payments WHERE id=%s RETURNING id',(payment_id,)).fetchone()
+    if not deleted: raise HTTPException(404,'Automatic payment not found')
+
+def validate_payment_account(db,method,account_id):
+    if account_id is None: return
+    row=db.execute('SELECT kind FROM financial_accounts WHERE id=%s',(account_id,)).fetchone()
+    expected='card' if method=='card' else 'bank' if method=='cash' else None
+    if not row or row['kind']!=expected: raise HTTPException(422,'선택한 결제 계좌와 결제수단이 맞지 않습니다.')
+
 def valid_month(month):
     try:
         if len(month)!=7 or month[4]!='-': raise ValueError()
@@ -324,19 +479,21 @@ def transactions(month: str | None = None, q: str = '', response: Response = Non
         clauses.append('(name ILIKE %s OR category ILIKE %s OR memo ILIKE %s)'); params += [f'%{q}%']*3
     where=(' WHERE '+' AND '.join(clauses)) if clauses else ''
     with database() as db:
-        return db.execute('SELECT id,occurred_on,name,category,amount,direction,owner,payment_method,memo FROM transactions'+where+' ORDER BY occurred_on DESC,id LIMIT %s OFFSET %s',params+[limit,offset]).fetchall()
+        return db.execute('SELECT id,occurred_on,name,category,amount,direction,owner,payment_method,payment_account_id,memo FROM transactions'+where+' ORDER BY occurred_on DESC,id LIMIT %s OFFSET %s',params+[limit,offset]).fetchall()
 
 @app.post('/api/transactions',status_code=201)
 def add_transaction(data: Transaction, user=Depends(authenticated)):
     row=data.model_dump()
     with database() as db:
-        return db.execute('INSERT INTO transactions(id,source_month,occurred_on,name,category,amount,direction,owner,payment_method,memo,legacy) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id,occurred_on,name,category,amount,direction,owner,payment_method,memo',(str(uuid.uuid4()),row['occurred_on'].strftime('%Y-%m'),row['occurred_on'],row['name'].strip(),row['category'].strip(),row['amount'],row['direction'],row['owner'],row['payment_method'],row['memo'].strip(),Jsonb({}))).fetchone()
+        validate_payment_account(db,row['payment_method'],row['payment_account_id'])
+        return db.execute('INSERT INTO transactions(id,source_month,occurred_on,name,category,amount,direction,owner,payment_method,payment_account_id,memo,legacy) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id,occurred_on,name,category,amount,direction,owner,payment_method,payment_account_id,memo',(str(uuid.uuid4()),row['occurred_on'].strftime('%Y-%m'),row['occurred_on'],row['name'].strip(),row['category'].strip(),row['amount'],row['direction'],row['owner'],row['payment_method'],row['payment_account_id'],row['memo'].strip(),Jsonb({}))).fetchone()
 
 @app.put('/api/transactions/{tx_id}')
 def edit_transaction(tx_id: str, data: Transaction, user=Depends(authenticated)):
     row=data.model_dump()
     with database() as db:
-        saved=db.execute('UPDATE transactions SET source_month=%s,occurred_on=%s,name=%s,category=%s,amount=%s,direction=%s,owner=%s,payment_method=%s,memo=%s,updated_at=now() WHERE id=%s RETURNING id,occurred_on,name,category,amount,direction,owner,payment_method,memo',(row['occurred_on'].strftime('%Y-%m'),row['occurred_on'],row['name'].strip(),row['category'].strip(),row['amount'],row['direction'],row['owner'],row['payment_method'],row['memo'].strip(),tx_id)).fetchone()
+        validate_payment_account(db,row['payment_method'],row['payment_account_id'])
+        saved=db.execute('UPDATE transactions SET source_month=%s,occurred_on=%s,name=%s,category=%s,amount=%s,direction=%s,owner=%s,payment_method=%s,payment_account_id=%s,memo=%s,updated_at=now() WHERE id=%s RETURNING id,occurred_on,name,category,amount,direction,owner,payment_method,payment_account_id,memo',(row['occurred_on'].strftime('%Y-%m'),row['occurred_on'],row['name'].strip(),row['category'].strip(),row['amount'],row['direction'],row['owner'],row['payment_method'],row['payment_account_id'],row['memo'].strip(),tx_id)).fetchone()
     if not saved: raise HTTPException(404,'Transaction not found')
     return saved
 
@@ -356,10 +513,11 @@ def import_csv(items: list[Transaction], response: Response, user=Depends(authen
         if prior:
             response.status_code=200
             return {'count':prior['report']['count'],'duplicate':True}
+        for item in items: validate_payment_account(db,item.payment_method,item.payment_account_id)
         db.execute('INSERT INTO import_batches(id,report) VALUES (%s,%s)',(batch,Jsonb({'count':len(items),'source':'csv'})))
         for i,item in enumerate(items):
             r=item.model_dump()
-            db.execute('INSERT INTO transactions(id,source_month,occurred_on,name,category,amount,direction,owner,payment_method,memo,legacy,batch_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(f'csv/{batch}/{i}',r['occurred_on'].strftime('%Y-%m'),r['occurred_on'],r['name'].strip(),r['category'].strip(),r['amount'],r['direction'],r['owner'],r['payment_method'],r['memo'].strip(),Jsonb(r),batch))
+            db.execute('INSERT INTO transactions(id,source_month,occurred_on,name,category,amount,direction,owner,payment_method,payment_account_id,memo,legacy,batch_id) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)',(f'csv/{batch}/{i}',r['occurred_on'].strftime('%Y-%m'),r['occurred_on'],r['name'].strip(),r['category'].strip(),r['amount'],r['direction'],r['owner'],r['payment_method'],r['payment_account_id'],r['memo'].strip(),Jsonb(r),batch))
     return {'count':len(items),'duplicate':False}
 
 @app.get('/')
