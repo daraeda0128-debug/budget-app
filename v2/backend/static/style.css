@@ -104,3 +104,4 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 :root[data-theme="dark"] .theme-toggle{border-color:#3b483f;background:#202a23ed;color:#f4d782}
 .topbar{padding-right:50px}
 @media(max-width:700px){.theme-toggle{top:9px;right:9px;width:42px;height:42px}.topbar{padding-right:48px}}
+:root[data-theme="dark"] .nav-link.active{background:#20372a;color:#91d4aa}
