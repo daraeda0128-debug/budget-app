@@ -4,6 +4,10 @@ const whoNames = {j:'진수',m:'미나',b:'공동'};
 let csrf = '';
 $('#theme-toggle').addEventListener('click',()=>window.walletTheme.toggle());
 window.walletTheme.apply();
+document.querySelectorAll('.nav-link[data-page]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();showPage(link.dataset.page);}));
+window.addEventListener('popstate',syncPageFromLocation);window.addEventListener('hashchange',syncPageFromLocation);
+$('#dashboard-all-transactions').addEventListener('click',()=>showPage('transactions'));
+$('#recent-transactions').addEventListener('click',event=>{if(event.target.closest('[data-recent-id]'))showPage('transactions');});
 const localToday=new Date();
 let selectedMonth = `${localToday.getFullYear()}-${String(localToday.getMonth()+1).padStart(2,'0')}`;
 let loadedTransactions = [];
@@ -22,12 +26,21 @@ async function api(path, options={}) {
   return body;
 }
 function showLogin(message='') { $('#app-view').hidden=true; $('#login-view').hidden=false; $('#login-error').textContent=message; }
-function showApp(user) { $('#login-view').hidden=true; $('#app-view').hidden=false; $('#user-name').textContent=user; $('#month-picker').value=selectedMonth; refresh(); loadPlanning(); }
+function showApp(user) { $('#login-view').hidden=true; $('#app-view').hidden=false; $('#user-name').textContent=user; $('#month-picker').value=selectedMonth; showPage(location.hash.slice(1)||'overview',false); refresh(); loadPlanning(); }
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('show'),2800); }
 function escapeHtml(text) { return String(text ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatDate(value) { return new Date(`${value}T00:00:00`).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}); }
+const pageIds=new Set(['overview','transactions','planning','import']);
+function showPage(page,addHistory=true){
+  if(!pageIds.has(page))page='overview';
+  document.querySelectorAll('[data-page-view]').forEach(section=>section.hidden=section.id!==page);
+  document.querySelectorAll('.nav-link[data-page]').forEach(link=>{const active=link.dataset.page===page;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+  if(addHistory&&location.hash!==`#${page}`)history.pushState({page},'',`#${page}`);
+  window.scrollTo({left:0,top:0,behavior:'auto'});
+}
+function syncPageFromLocation(){showPage(location.hash.slice(1)||'overview',false);}
 function monthMove(delta) { const [y,m]=selectedMonth.split('-').map(Number); const d=new Date(y,m-1+delta,1); selectedMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; $('#month-picker').value=selectedMonth; refresh(); }
-async function refresh() { if ($('#app-view').hidden) return; await Promise.all([loadSummary(),loadTransactions()]); }
+async function refresh() { if ($('#app-view').hidden) return; await Promise.all([loadSummary(),loadTransactions(),loadRecentTransactions()]); }
 async function loadSummary() {
   try {
     const s=await api(`/api/summary?month=${encodeURIComponent(selectedMonth)}`);
@@ -51,6 +64,10 @@ async function loadTransactions() {
     const body=$('#transaction-rows'); $('#empty-state').hidden=visible.length>0;
     body.innerHTML=visible.map(t=>`<tr><td>${formatDate(t.occurred_on)}</td><td class="tx-name">${escapeHtml(t.name)}</td><td>${escapeHtml(t.category)}</td><td><span class="owner-badge owner-${t.owner}">${whoNames[t.owner]||'공동'}</span></td><td><span class="pay-badge">${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}</span></td><td class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</td><td><button class="row-edit" data-id="${escapeHtml(t.id)}">보기</button></td></tr>`).join('');
   } catch(e) { toast(e.message); }
+}
+async function loadRecentTransactions(){
+  try{const rows=await api(`/api/transactions?month=${encodeURIComponent(selectedMonth)}&limit=5`);const box=$('#recent-transactions');box.innerHTML=rows.length?rows.map(t=>`<button type="button" class="recent-row" data-recent-id="${escapeHtml(t.id)}"><span class="recent-date">${formatDate(t.occurred_on)}</span><span class="recent-main"><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.category)} · ${whoNames[t.owner]||'공동'} · ${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}</small></span><strong class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</strong></button>`).join(''):'<div class="recent-empty">이 달에 기록된 거래가 없습니다.</div>';}
+  catch(e){toast(e.message);}
 }
 function openTransaction(type='expense', transaction=null) {
   const form=$('#transaction-form'); form.reset(); form.elements.id.value=transaction?.id||''; form.elements.direction.value=transaction?.direction||type;
