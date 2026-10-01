@@ -197,3 +197,20 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 :root[data-theme="dark"] .account-card.account-bank{border-left-color:#438766}:root[data-theme="dark"] .account-card.account-loan{border-left-color:#5b9278}:root[data-theme="dark"] .account-card.account-investment{border-left-color:#73a18e}:root[data-theme="dark"] .account-card.account-credit{border-left-color:#89aa93}
 :root[data-theme="dark"] .account-bank .account-kind,:root[data-theme="dark"] .account-loan .account-kind,:root[data-theme="dark"] .account-investment .account-kind,:root[data-theme="dark"] .account-credit .account-kind{color:#e6f4eb;background:#294a38}
 :root[data-theme="dark"] .account-loan .account-kind{background:#305140}:root[data-theme="dark"] .account-investment .account-kind{background:#365748}:root[data-theme="dark"] .account-credit .account-kind{background:#3d5c48}
+
+/* Consistent asset colors: deposit green, loan red, investments purple, credit card blue. */
+.account-card.account-bank,.account-card.account-loan,.account-card.account-investment,.account-card.account-credit{border-left:5px solid;background:var(--card)}
+.account-card.account-bank{border-left-color:#3b9b70;background:color-mix(in srgb,#3b9b70 7%,var(--card))}
+.account-card.account-loan{border-left-color:#d76565;background:color-mix(in srgb,#d76565 7%,var(--card))}
+.account-card.account-investment{border-left-color:#8a78c4;background:color-mix(in srgb,#8a78c4 7%,var(--card))}
+.account-card.account-credit{border-left-color:#568bd4;background:color-mix(in srgb,#568bd4 7%,var(--card))}
+.account-bank .account-kind{color:#e8fff3;background:#287a57}.account-loan .account-kind{color:#fff0f0;background:#a84949}
+.account-investment .account-kind{color:#f4efff;background:#62518e}.account-credit .account-kind{color:#edf5ff;background:#3f6fae}
+:root[data-theme="dark"] .account-card.account-bank{border-color:var(--line);border-left-color:#4fc18c;background:color-mix(in srgb,#276346 21%,var(--card))}
+:root[data-theme="dark"] .account-card.account-loan{border-color:var(--line);border-left-color:#ed7777;background:color-mix(in srgb,#783a3a 22%,var(--card))}
+:root[data-theme="dark"] .account-card.account-investment{border-color:var(--line);border-left-color:#a28bdf;background:color-mix(in srgb,#514471 22%,var(--card))}
+:root[data-theme="dark"] .account-card.account-credit{border-color:var(--line);border-left-color:#72a9f5;background:color-mix(in srgb,#315783 22%,var(--card))}
+:root[data-theme="dark"] .account-bank .account-kind{color:#dfffee;background:#285f46}
+:root[data-theme="dark"] .account-loan .account-kind{color:#ffe8e8;background:#763c3c}
+:root[data-theme="dark"] .account-investment .account-kind{color:#f2eaff;background:#514276}
+:root[data-theme="dark"] .account-credit .account-kind{color:#e9f3ff;background:#315b8d}
