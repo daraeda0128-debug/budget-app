@@ -214,3 +214,13 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 :root[data-theme="dark"] .account-loan .account-kind{color:#ffe8e8;background:#763c3c}
 :root[data-theme="dark"] .account-investment .account-kind{color:#f2eaff;background:#514276}
 :root[data-theme="dark"] .account-credit .account-kind{color:#e9f3ff;background:#315b8d}
+
+/* Inner summary panels follow the color of their parent account card. */
+.account-card.account-bank{--account-tint:#3b9b70}
+.account-card.account-loan{--account-tint:#d76565}
+.account-card.account-investment{--account-tint:#8a78c4}
+.account-card.account-credit{--account-tint:#568bd4}
+.account-card.account-loan .loan-schedule,.account-card.account-credit .card-usage{background:color-mix(in srgb,var(--account-tint) 7%,var(--card));border-color:color-mix(in srgb,var(--account-tint) 22%,var(--line))}
+.account-card.account-loan .loan-schedule .repayment-method{background:color-mix(in srgb,var(--account-tint) 18%,var(--card));color:var(--ink)}
+:root[data-theme="dark"] .account-card.account-loan .loan-schedule,:root[data-theme="dark"] .account-card.account-credit .card-usage{background:color-mix(in srgb,var(--account-tint) 22%,var(--card));border-color:color-mix(in srgb,var(--account-tint) 40%,var(--line))}
+:root[data-theme="dark"] .account-card.account-loan .loan-schedule .repayment-method{background:color-mix(in srgb,var(--account-tint) 34%,var(--card));color:var(--ink)}
