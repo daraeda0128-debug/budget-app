@@ -23,6 +23,47 @@ def money(value):
         raise ValueError('Amount must be integer KRW')
     return int(value)
 
+def normalize_fixed(items):
+    if not isinstance(items, list):
+        raise ValueError('Fixed expenses must be an array')
+    normalized=[]
+    for item in items:
+        if not isinstance(item,dict):
+            raise ValueError('Fixed expense must be an object')
+        amount=money(item.get('amt',item.get('amount',0)))
+        if amount<0:
+            raise ValueError('Fixed expense cannot be negative')
+        payment=item.get('payMethod',item.get('payment_method',item.get('pay','cash')))
+        if payment not in {'cash','card'}:
+            raise ValueError('Unknown fixed-expense payment method')
+        normalized.append({**item,'amt':amount,'payMethod':payment})
+    return normalized
+
+def normalize_event(event, key):
+    if not isinstance(event,dict):
+        raise ValueError('Simulation event must be an object')
+    repeat=bool(event.get('repeat',False))
+    month=event.get('month',event.get('ym'))
+    if not repeat and (not isinstance(month,str) or not MONTH.fullmatch(month)):
+        raise ValueError('Simulation event has an invalid month')
+    amount=money(event.get('amount',event.get('amt')))
+    direction=event.get('direction',event.get('type'))
+    if amount<=0 or direction not in {'income','expense'}:
+        raise ValueError('Simulation event has an invalid amount or direction')
+    normalized={'id':str(event.get('id',key)),'name':str(event.get('name','')).strip(),'amount':amount,'direction':direction,'month':month,'owner':event.get('owner',event.get('who','b')),'repeat':repeat}
+    if not normalized['name'] or len(normalized['name'])>160 or normalized['owner'] not in {'j','m','b'}:
+        raise ValueError('Simulation event has invalid name or owner')
+    if repeat:
+        months=event.get('months') or []
+        start_year=event.get('start_year',event.get('startYear'))
+        end_year=event.get('end_year',event.get('endYear'))
+        if not months or any(type(m) is not int or m<1 or m>12 for m in months) or len(set(months))!=len(months):
+            raise ValueError('Recurring simulation event has invalid months')
+        if type(start_year) is not int or type(end_year) is not int or start_year<2000 or end_year<start_year or end_year>2200:
+            raise ValueError('Recurring simulation event has invalid years')
+        normalized.update({'months':sorted(months),'start_year':start_year,'end_year':end_year})
+    return normalized
+
 def plan(firebase, local):
     config = dict(firebase.get('config') or {})
     conflicts = []
@@ -65,14 +106,21 @@ def plan(firebase, local):
             rows.append({'id':f'firebase/tx/{month}/{key}', 'month':month, 'date':t['date'], 'name':t['name'], 'category':t['cat'], 'amount':amount,'direction':t['type'],'owner':t['who'],'payment':payment,'memo':t.get('memo',''),'legacy':t})
             group = '/'.join((month,t['who'],t['type'],payment or 'unknown',t['cat']))
             totals[group] = totals.get(group,0)+amount
+    fixed={month:normalize_fixed(items) for month,items in fixed.items()}
     for month in fixed:
         if not MONTH.fullmatch(month):
             raise ValueError('Invalid fixed month')
     anchors = config.get('carryAnchors') or {}
+    if not anchors and config.get('carryoverBaseYm'):
+        anchors={config['carryoverBaseYm']:config.get('carryover',0)}
     for month, amount in anchors.items():
         if not MONTH.fullmatch(month):
             raise ValueError('Invalid carry anchor month')
         money(amount)
+    config['carryAnchors']=anchors
+    config['salary']={'enabled':config.get('autoSalary','on')!='off','salary_j':money(config.get('salaryJ',0)),'salary_m':money(config.get('salaryM',0)),'day_j':10,'day_m':17}
+    raw_events=config.get('simEvents') or []
+    config['simEvents']=[normalize_event(event,key) for key,event in entries(raw_events)]
     report = {'count':len(rows), 'totals':dict(sorted(totals.items())), 'conflicts':sorted(conflicts), 'missing_payment':sum(r['payment'] is None for r in rows), 'fixed_months':sorted(fixed), 'config_keys':sorted(config)}
     return {'transactions':rows,'fixed':fixed,'config':config,'report':report}
 
@@ -123,3 +171,4 @@ if __name__ == '__main__':
     print(json.dumps({'sha256':sha,**result['report']},ensure_ascii=False,indent=2))
     if args.apply_reviewed_sha256:
         print('Imported batch:', apply(result,args.apply_reviewed_sha256))
+
