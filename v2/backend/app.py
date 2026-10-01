@@ -83,6 +83,22 @@ class Transaction(BaseModel):
 class FixedSnapshot(BaseModel):
     items: list[dict] = Field(max_length=200)
 
+class FixedRule(BaseModel):
+    name: str = Field(min_length=1,max_length=160)
+    amount: int = Field(ge=0,le=9_000_000_000_000_000)
+    payment_method: str = 'cash'
+    owner: str = 'b'
+    day: int = Field(ge=1,le=31)
+    start_month: str = Field(pattern=r'^\d{4}-(0[1-9]|1[0-2])$')
+    end_month: str | None = Field(default=None,pattern=r'^\d{4}-(0[1-9]|1[0-2])$')
+
+    @model_validator(mode='after')
+    def valid_rule(self):
+        if self.payment_method not in {'cash','card'}: raise ValueError('invalid payment method')
+        if self.owner not in {'j','m','b'}: raise ValueError('invalid owner')
+        if self.end_month and self.end_month < self.start_month: raise ValueError('end month must not be before start month')
+        return self
+
 class SalarySettings(BaseModel):
     enabled: bool = False
     salary_j: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
@@ -269,6 +285,23 @@ def logout(response: Response, user=Depends(authenticated)):
     response.delete_cookie('__Host-budget',secure=True,httponly=True,samesite='strict',path='/')
     return {'ok':True}
 
+def recurring_fixed_by_month(db, start_month, end_month):
+    rows=db.execute("SELECT id,owner,amount,day,start_month,end_month,payment_method,metadata FROM recurring_rules WHERE kind='fixed' AND (start_month IS NULL OR start_month<=%s) AND (end_month IS NULL OR end_month>=%s) ORDER BY id",(end_month,start_month)).fetchall()
+    result={}
+    sy,sm=map(int,start_month.split('-')); ey,em=map(int,end_month.split('-'))
+    for row in rows:
+        metadata=row['metadata'] or {}; name=str(metadata.get('name') or '').strip()
+        if not name: continue
+        ry,rm=map(int,row['start_month'].split('-')) if row['start_month'] else (sy,sm)
+        last_y,last_m=map(int,row['end_month'].split('-')) if row['end_month'] else (ey,em)
+        cy,cm=max((sy,sm),(ry,rm)); last_y,last_m=min((ey,em),(last_y,last_m))
+        while (cy,cm)<=(last_y,last_m):
+            month=f'{cy:04d}-{cm:02d}'
+            result.setdefault(month,[]).append({'id':row['id'],'name':name,'amt':int(row['amount']),'payMethod':row['payment_method'] or 'cash','owner':row['owner'],'day':row['day'],'due_date':f'{month}-{min(int(row["day"] or 1),calendar.monthrange(cy,cm)[1]):02d}','start_month':row['start_month'],'end_month':row['end_month'],'recurring':True})
+            cm+=1
+            if cm==13: cy+=1; cm=1
+    return result
+
 @app.get('/api/summary')
 def summary(month: str, response: Response, user=Depends(authenticated)):
     if len(month)!=7 or month[4]!='-': raise HTTPException(422,'Use YYYY-MM')
@@ -285,6 +318,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         fs_y,fs_m=map(int,flow_start.split('-')); history_start=f'{fs_y-1:04d}-12' if fs_m==1 else f'{fs_y:04d}-{fs_m-1:02d}'
         flow_rows=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s GROUP BY 1,direction,category,payment_method",(history_start+'-01',end)).fetchall()
         flow_fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month >= %s AND month <= %s',(history_start,month)).fetchall()
+        recurring_fixed=recurring_fixed_by_month(db,history_start,month)
     income=sum(r['amount'] for r in rows if r['direction']=='income' and r['category'] not in PASSTHROUGH)
     expenses=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH)
     pass_net=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in rows if r['category'] in PASSTHROUGH)
@@ -294,13 +328,14 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
             by_category[r['category']]=by_category.get(r['category'],0)+r['amount']
     fixed_items=(fixed['items'] or []) if fixed else []
     loan_due=loan_payments_by_month(loan_accounts,history_start,month)
-    fixed_total=planned_cash_total(fixed_items,loan_due.get(month,{}))
+    current_plans=fixed_items+recurring_fixed.get(month,[])
+    fixed_total=planned_cash_total(current_plans,loan_due.get(month,{}))
     flow_by_month={}
     for row in flow_rows: flow_by_month.setdefault(row['transaction_month'],[]).append(row)
     fixed_by_month={r['month']:(r['items'] or []) for r in flow_fixed}
     def card_usage(ym):
         variable=sum(r['amount'] for r in flow_by_month.get(ym,[]) if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')
-        planned=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_by_month.get(ym,[]) if x.get('payMethod',x.get('payment_method','cash'))=='card')
+        planned=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_by_month.get(ym,[])+recurring_fixed.get(ym,[]) if x.get('payMethod',x.get('payment_method','cash'))=='card')
         return variable+planned
     def month_net(ym):
         txs=flow_by_month.get(ym,[])
@@ -309,7 +344,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         settlement=sum(r['amount'] for r in txs if r['direction']=='income' and r['category']=='정산')
         sidegig=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in txs if r['category']=='부업')
         card_pay=sum(r['amount'] for r in txs if r['direction']=='expense' and r['category']=='카드대금')
-        cash_fixed=planned_cash_total(fixed_by_month.get(ym,[]),loan_due.get(ym,{}))
+        cash_fixed=planned_cash_total(fixed_by_month.get(ym,[])+recurring_fixed.get(ym,[]),loan_due.get(ym,{}))
         prev_y,prev_m=map(int,ym.split('-')); prev_ym=f'{prev_y-1:04d}-12' if prev_m==1 else f'{prev_y:04d}-{prev_m-1:02d}'
         card_excess=max(0,card_usage(prev_ym)-card_pay)
         return real_income+settlement+sidegig-cash_expense-cash_fixed-card_pay-card_excess
@@ -322,7 +357,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
             ym=f'{cy:04d}-{cm:02d}'; carry+=month_net(ym)
             cm+=1
             if cm>12: cy+=1; cm=1
-    current_card=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')+sum(int(x.get('amt',x.get('amount',0))) for x in fixed_items if x.get('payMethod',x.get('payment_method','cash'))=='card')
+    current_card=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')+sum(int(x.get('amt',x.get('amount',0))) for x in current_plans if x.get('payMethod',x.get('payment_method','cash'))=='card')
     prior_y,prior_m=map(int,month.split('-')); prior_month=f'{prior_y-1:04d}-12' if prior_m==1 else f'{prior_y:04d}-{prior_m-1:02d}'
     card_pay=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category']=='카드대금')
     return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'card_usage':current_card,'card_pay':card_pay,'card_unpaid_estimate':max(0,card_usage(prior_month)-card_pay),'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
@@ -532,7 +567,22 @@ def get_fixed(month: str, user=Depends(authenticated)):
     valid_month(month)
     with database() as db:
         row=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
-    return {'month':month,'items':row['items'] if row else []}
+        rules=recurring_fixed_by_month(db,month,month).get(month,[])
+    return {'month':month,'items':row['items'] if row else [],'rules':rules}
+
+
+@app.post('/api/fixed-rules',status_code=201)
+def add_fixed_rule(data: FixedRule,user=Depends(authenticated)):
+    r=data.model_dump(); name=r.pop('name').strip()
+    with database() as db:
+        row=db.execute("INSERT INTO recurring_rules(kind,owner,amount,day,start_month,end_month,payment_method,metadata) VALUES ('fixed',%s,%s,%s,%s,%s,%s,%s) RETURNING id",(r['owner'],r['amount'],r['day'],r['start_month'],r['end_month'],r['payment_method'],Jsonb({'name':name}))).fetchone()
+    return {'id':row['id'],'name':name,**r}
+
+@app.delete('/api/fixed-rules/{rule_id}',status_code=204)
+def delete_fixed_rule(rule_id: int,user=Depends(authenticated)):
+    with database() as db:
+        deleted=db.execute("DELETE FROM recurring_rules WHERE id=%s AND kind='fixed' RETURNING id",(rule_id,)).fetchone()
+    if not deleted: raise HTTPException(404,'Fixed expense rule not found')
 
 @app.put('/api/fixed/{month}')
 def put_fixed(month: str, data: FixedSnapshot, user=Depends(authenticated)):
@@ -596,6 +646,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
     with database() as db:
         events=db.execute('SELECT id,value FROM simulation_events').fetchall()
         fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
+        recurring_fixed=recurring_fixed_by_month(db,month_list[0],month_list[-1])
         loan_accounts=db.execute("SELECT * FROM financial_accounts WHERE kind='loan'").fetchall()
         salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
         tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,5",(start+'-01',start+'-01',months)).fetchall()
@@ -614,7 +665,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
             if event.get('repeat'):
                 occurs=(int(event.get('start_year',yy))<=yy<=int(event.get('end_year',yy)) and mm in event.get('months',[]))
             if occurs: event_net+=(1 if event.get('direction')=='income' else -1)*int(event.get('amount',0))
-        fixed_total=planned_cash_total(fixed_map.get(m,[]),loan_due.get(m,{}))
+        fixed_total=planned_cash_total(fixed_map.get(m,[])+recurring_fixed.get(m,[]),loan_due.get(m,{}))
         expected_salary=(int(salary.get('salary_j',0))+int(salary.get('salary_m',0))) if salary.get('enabled') else 0
         result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['cash_expense']-fixed_total})
     return result
