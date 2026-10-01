@@ -53,7 +53,10 @@ async function loadTransactions() {
 function openTransaction(type='expense', transaction=null) {
   const form=$('#transaction-form'); form.reset(); form.elements.id.value=transaction?.id||''; form.elements.direction.value=transaction?.direction||type;
   form.elements.occurred_on.value=transaction?.occurred_on||`${selectedMonth}-${String(new Date().getDate()).padStart(2,'0')}`;
-  form.elements.amount.value=transaction?.amount||''; form.elements.name.value=transaction?.name||''; form.elements.category.value=transaction?.category||'';
+  form.elements.amount.value=transaction?.amount||''; form.elements.name.value=transaction?.name||'';
+  const category=form.elements.category; const categoryValue=transaction?.category||'';
+  if(categoryValue&&!Array.from(category.options).some(option=>option.value===categoryValue)){const option=document.createElement('option');option.value=categoryValue;option.textContent=`${categoryValue} · 기존`;category.append(option);}
+  category.value=categoryValue;
   form.elements.owner.value=transaction?.owner||'j'; form.elements.payment_method.value=transaction?.payment_method??'cash'; form.elements.memo.value=transaction?.memo||'';
   $('#dialog-title').textContent=transaction?'거래 수정':'거래 추가'; $('#delete-transaction').hidden=!transaction; $('#transaction-error').textContent=''; setDirection(form.elements.direction.value); $('#transaction-dialog').showModal();
 }
@@ -130,6 +133,10 @@ $('#fixed-list').addEventListener('click',e=>{const b=e.target.closest('[data-fi
 $('#carry-form').addEventListener('submit',async e=>{e.preventDefault();const amount=Number(e.currentTarget.elements.amount.value);try{await api(`/api/carry/${selectedMonth}`,{method:'PUT',body:JSON.stringify({amount})});toast('이월 잔액 기준점을 저장했어요.');await Promise.all([loadPlanning(),loadSummary()]);}catch(err){toast(err.message);}});
 $('#event-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget;try{await api('/api/simulation',{method:'POST',body:JSON.stringify({name:f.elements.name.value.trim(),amount:Number(f.elements.amount.value),month:f.elements.month.value,direction:f.elements.direction.value,owner:'b'})});f.reset();f.elements.month.value=selectedMonth;toast('예정 항목을 추가했어요.');await loadPlanning();}catch(err){toast(err.message);}});
 $('#event-list').addEventListener('click',async e=>{const b=e.target.closest('[data-event-id]');if(!b)return;try{await api(`/api/simulation/${encodeURIComponent(b.dataset.eventId)}`,{method:'DELETE'});await loadPlanning();}catch(err){toast(err.message);}});
+
+// iOS Safari zooms inputs whose text is smaller than 16px. CSS keeps mobile controls at
+// 16px; this also clears any horizontal drift after the keyboard closes without disabling pinch zoom.
+document.addEventListener('focusout',event=>{if(!event.target.matches('input,select,textarea'))return;setTimeout(()=>{if(document.activeElement.matches('input,select,textarea'))return;document.documentElement.scrollLeft=0;document.body.scrollLeft=0;window.scrollTo({left:0,top:window.scrollY,behavior:'auto'});},80);});
 
 $('#login-form').addEventListener('submit',async event=>{event.preventDefault();const data=new FormData(event.currentTarget);const button=event.currentTarget.querySelector('button');button.disabled=true;try{const result=await api('/api/login',{method:'POST',body:JSON.stringify({username:data.get('username'),password:data.get('password')})});csrf=result.csrf;showApp(String(data.get('username')));}catch(e){$('#login-error').textContent=e.message==='Invalid credentials'?'아이디 또는 비밀번호를 확인해 주세요.':e.message;}finally{button.disabled=false;}});
 $('#logout-button').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST',body:'{}'});}catch{}csrf='';showLogin();});
