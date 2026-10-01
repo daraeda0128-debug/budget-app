@@ -40,7 +40,7 @@ function showPage(page,addHistory=true){
   if(page==='accounts'&&!$('#app-view').hidden)loadFinance();
 }
 function syncPageFromLocation(){showPage(location.hash.slice(1)||'overview',false);}
-function monthMove(delta) { const [y,m]=selectedMonth.split('-').map(Number); const d=new Date(y,m-1+delta,1); selectedMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; $('#month-picker').value=selectedMonth; refresh(); }
+function monthMove(delta) { const previous=selectedMonth,[y,m]=selectedMonth.split('-').map(Number); const d=new Date(y,m-1+delta,1); selectedMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; $('#month-picker').value=selectedMonth; if($('#fixed-form').elements.start_month.value===previous)$('#fixed-form').elements.start_month.value=selectedMonth; refresh(); loadPlanning(); }
 async function refresh() { if ($('#app-view').hidden) return; await loadFinance(); await Promise.all([loadSummary(),loadTransactions(),loadRecentTransactions()]); }
 async function loadSummary() {
   try {
@@ -197,6 +197,7 @@ async function loadPlanning(){
   try {
     const [salary,fixed,carry,events,forecast,finance]=await Promise.all([api('/api/settings/salary'),api(`/api/fixed?month=${selectedMonth}`),api(`/api/carry/${selectedMonth}`),api('/api/simulation'),api(`/api/simulation/forecast?start=${selectedMonth}&months=6`),api(`/api/finance?month=${selectedMonth}`)]);
     const sf=$('#salary-form'); for(const k of ['salary_j','salary_m','day_j','day_m'])sf.elements[k].value=salary[k]??0; sf.elements.enabled.checked=salary.enabled;
+    if(!$('#fixed-form').elements.start_month.value)$('#fixed-form').elements.start_month.value=selectedMonth;
     fixedItems=fixed.items||[]; recurringFixedItems=fixed.rules||[]; automaticFixedItems=finance.scheduled_payments||[]; loanFixedItems=(finance.accounts||[]).filter(a=>a.kind==='loan').flatMap(a=>(a.loan_schedule||[]).filter(x=>x.month===selectedMonth&&Number(x.payment)>0).map(x=>({name:a.name,amount:Number(x.payment),number:x.number}))); $('#fixed-month-label').textContent=selectedMonth; renderFixed();
     $('#carry-form').elements.amount.value=carry.amount??'';
     $('#carry-result').textContent=carry.amount===null?'아직 이 달의 시작 잔액을 설정하지 않았어요.':`기준 잔액 ${won.format(carry.amount)}`;
@@ -233,7 +234,7 @@ $('#transaction-form').addEventListener('submit',saveTransaction); $('#delete-tr
 $('#transaction-form').elements.payment_method.addEventListener('change',()=>refreshPaymentAccountOptions(''));
 $('#close-dialog').addEventListener('click',()=>$('#transaction-dialog').close()); $('#cancel-dialog').addEventListener('click',()=>$('#transaction-dialog').close());
 $('#transaction-rows').addEventListener('click',event=>{const button=event.target.closest('[data-id]');if(!button)return;const tx=loadedTransactions.find(x=>x.id===button.dataset.id);if(tx)openTransaction(tx.direction,tx);});
-$('#prev-month').addEventListener('click',()=>monthMove(-1)); $('#next-month').addEventListener('click',()=>monthMove(1)); $('#month-picker').addEventListener('change',event=>{if(event.target.value){selectedMonth=event.target.value;refresh();loadPlanning();}});
+$('#prev-month').addEventListener('click',()=>monthMove(-1)); $('#next-month').addEventListener('click',()=>monthMove(1)); $('#month-picker').addEventListener('change',event=>{if(event.target.value){const previous=selectedMonth;selectedMonth=event.target.value;if($('#fixed-form').elements.start_month.value===previous)$('#fixed-form').elements.start_month.value=selectedMonth;refresh();loadPlanning();}});
 $('#owner-filter').addEventListener('change',loadTransactions); $('#search-input').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(loadTransactions,250);});
 $('#csv-file').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)prepareImport(file);}); $('#cancel-import').addEventListener('click',cancelImport); $('#confirm-import').addEventListener('click',confirmImport);
 
