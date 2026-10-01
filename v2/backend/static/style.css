@@ -175,3 +175,15 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 
 
 .account-card.account-bank{border-left:4px solid #35b979;background:color-mix(in srgb,#168452 9%,var(--card))}.account-card.account-loan{border-left:4px solid #ed895d;background:color-mix(in srgb,#c5532f 10%,var(--card))}.account-card.account-investment{border-left:4px solid #7d91ed;background:color-mix(in srgb,#536bd0 9%,var(--card))}.account-card.account-credit{border-left:4px solid #d0a44b;background:color-mix(in srgb,#b9851d 9%,var(--card))}.account-loan .account-kind{background:#fce5da;color:#893b1f}.account-bank .account-kind{background:#ddf4e8;color:#176341}.loan-schedule .repayment-method{display:inline-flex;width:max-content;padding:4px 8px;border-radius:999px;background:#fce5da;color:#893b1f;font-size:11px;font-weight:800}.loan-schedule{display:grid;gap:7px}
+
+/* High-contrast account type markers, including dark mode overrides. */
+.account-card.account-bank{border-left:6px solid #279765;background:color-mix(in srgb,#279765 11%,var(--card))}.account-card.account-loan{border-left:6px solid #d66b45;background:color-mix(in srgb,#d66b45 12%,var(--card))}.account-card.account-investment{border-left:6px solid #6378db;background:color-mix(in srgb,#6378db 11%,var(--card))}.account-card.account-credit{border-left:6px solid #bd8a25;background:color-mix(in srgb,#bd8a25 12%,var(--card))}
+.account-bank .account-kind{background:#16734b;color:#fff}.account-loan .account-kind{background:#a74729;color:#fff}.account-investment .account-kind{background:#455bb3;color:#fff}.account-credit .account-kind{background:#8b6419;color:#fff}
+:root[data-theme="dark"] .account-card.account-bank{border-left-color:#43d294;background:color-mix(in srgb,#1e7049 32%,var(--card))}
+:root[data-theme="dark"] .account-card.account-loan{border-left-color:#ff986f;background:color-mix(in srgb,#803b28 34%,var(--card))}
+:root[data-theme="dark"] .account-card.account-investment{border-left-color:#9aaaff;background:color-mix(in srgb,#3c4d96 34%,var(--card))}
+:root[data-theme="dark"] .account-card.account-credit{border-left-color:#e8bd56;background:color-mix(in srgb,#725519 34%,var(--card))}
+:root[data-theme="dark"] .account-bank .account-kind{background:#176f48;color:#effff5}
+:root[data-theme="dark"] .account-loan .account-kind{background:#873d29;color:#fff4ef}
+:root[data-theme="dark"] .account-investment .account-kind{background:#3e4f9a;color:#f0f2ff}
+:root[data-theme="dark"] .account-credit .account-kind{background:#735719;color:#fff9e9}
