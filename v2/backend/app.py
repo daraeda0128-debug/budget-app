@@ -167,11 +167,13 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     end=date(start.year+1,1,1) if start.month==12 else date(start.year,start.month+1,1)
     response.headers['Cache-Control']='no-store'
     with database() as db:
-        rows=db.execute('SELECT direction,owner,category,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s AND occurred_on < %s GROUP BY direction,owner,category',(start,end)).fetchall()
+        rows=db.execute("SELECT direction,owner,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s AND occurred_on < %s GROUP BY direction,owner,category,payment_method",(start,end)).fetchall()
         fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
         anchor=db.execute('SELECT month,amount FROM carry_anchors WHERE month<=%s ORDER BY month DESC LIMIT 1',(month,)).fetchone()
-        prior=db.execute("SELECT COALESCE(sum(CASE WHEN direction='income' THEN amount WHEN payment_method IS DISTINCT FROM 'card' THEN -amount ELSE 0 END),0)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s::date",(f"{anchor['month']}-01" if anchor else f'{start.year}-01-01',start.isoformat())).fetchone()
-        prior_fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month >= %s AND month < %s',(anchor['month'] if anchor else f'{start.year}-01',month)).fetchall()
+        flow_start=anchor['month'] if anchor else f'{start.year}-01'
+        fs_y,fs_m=map(int,flow_start.split('-')); history_start=f'{fs_y-1:04d}-12' if fs_m==1 else f'{fs_y:04d}-{fs_m-1:02d}'
+        flow_rows=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s GROUP BY 1,direction,category,payment_method",(history_start+'-01',end)).fetchall()
+        flow_fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month >= %s AND month <= %s',(history_start,month)).fetchall()
     income=sum(r['amount'] for r in rows if r['direction']=='income' and r['category'] not in PASSTHROUGH)
     expenses=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH)
     pass_net=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in rows if r['category'] in PASSTHROUGH)
@@ -179,11 +181,39 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     for r in rows:
         if r['direction']=='expense' and r['category'] not in PASSTHROUGH:
             by_category[r['category']]=by_category.get(r['category'],0)+r['amount']
-    fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in (fixed['items'] if fixed else []) if x.get('payMethod',x.get('payment_method','cash'))!='card')
-    net=income-expenses-fixed_total+pass_net
-    prior_fixed_total=sum(int(item.get('amt',item.get('amount',0))) for snapshot in prior_fixed for item in (snapshot['items'] or []) if item.get('payMethod',item.get('payment_method','cash'))=='cash')
-    carry=int(anchor['amount'])+int(prior['amount'])-prior_fixed_total if anchor else None
-    return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
+    fixed_items=(fixed['items'] or []) if fixed else []
+    fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_items if x.get('payMethod',x.get('payment_method','cash'))!='card')
+    flow_by_month={}
+    for row in flow_rows: flow_by_month.setdefault(row['month'],[]).append(row)
+    fixed_by_month={r['month']:(r['items'] or []) for r in flow_fixed}
+    def card_usage(ym):
+        variable=sum(r['amount'] for r in flow_by_month.get(ym,[]) if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')
+        planned=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_by_month.get(ym,[]) if x.get('payMethod',x.get('payment_method','cash'))=='card')
+        return variable+planned
+    def month_net(ym):
+        txs=flow_by_month.get(ym,[])
+        real_income=sum(r['amount'] for r in txs if r['direction']=='income' and r['category'] not in PASSTHROUGH)
+        cash_expense=sum(r['amount'] for r in txs if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']!='card')
+        settlement=sum(r['amount'] for r in txs if r['direction']=='income' and r['category']=='정산')
+        sidegig=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in txs if r['category']=='부업')
+        card_pay=sum(r['amount'] for r in txs if r['direction']=='expense' and r['category']=='카드대금')
+        cash_fixed=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_by_month.get(ym,[]) if x.get('payMethod',x.get('payment_method','cash'))!='card')
+        prev_y,prev_m=map(int,ym.split('-')); prev_ym=f'{prev_y-1:04d}-12' if prev_m==1 else f'{prev_y:04d}-{prev_m-1:02d}'
+        card_excess=max(0,card_usage(prev_ym)-card_pay)
+        return real_income+settlement+sidegig-cash_expense-cash_fixed-card_pay-card_excess
+    net=month_net(month)
+    carry=int(anchor['amount']) if anchor else None
+    if anchor:
+        cy,cm=map(int,anchor['month'].split('-')); ty,tm=start.year,start.month
+        for _ in range(120):
+            if (cy,cm)>=(ty,tm): break
+            ym=f'{cy:04d}-{cm:02d}'; carry+=month_net(ym)
+            cm+=1
+            if cm>12: cy+=1; cm=1
+    current_card=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH and r['payment_method']=='card')+sum(int(x.get('amt',x.get('amount',0))) for x in fixed_items if x.get('payMethod',x.get('payment_method','cash'))=='card')
+    prior_y,prior_m=map(int,month.split('-')); prior_month=f'{prior_y-1:04d}-12' if prior_m==1 else f'{prior_y:04d}-{prior_m-1:02d}'
+    card_pay=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category']=='카드대금')
+    return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'card_usage':current_card,'card_pay':card_pay,'card_unpaid_estimate':max(0,card_usage(prior_month)-card_pay),'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
 
 def valid_month(month):
     try:
