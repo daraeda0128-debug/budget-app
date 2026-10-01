@@ -224,3 +224,13 @@ html,body{width:100%;max-width:100%;overflow-x:clip;overscroll-behavior-x:none;t
 .account-card.account-loan .loan-schedule .repayment-method{background:color-mix(in srgb,var(--account-tint) 18%,var(--card));color:var(--ink)}
 :root[data-theme="dark"] .account-card.account-loan .loan-schedule,:root[data-theme="dark"] .account-card.account-credit .card-usage{background:color-mix(in srgb,var(--account-tint) 22%,var(--card));border-color:color-mix(in srgb,var(--account-tint) 40%,var(--line))}
 :root[data-theme="dark"] .account-card.account-loan .loan-schedule .repayment-method{background:color-mix(in srgb,var(--account-tint) 34%,var(--card));color:var(--ink)}
+
+/* Loan repayment schedule rows share the parent loan's red tint. */
+.account-card.account-loan .loan-schedule summary{color:#c86565}
+.account-card.account-loan .loan-due-list>div{border-top-color:color-mix(in srgb,var(--account-tint) 34%,var(--line))}
+.account-card.account-loan .loan-due-list strong{color:#bd5a5a}
+.account-card.account-loan .loan-due-list small{color:color-mix(in srgb,var(--account-tint) 52%,var(--muted))}
+:root[data-theme="dark"] .account-card.account-loan .loan-schedule summary{color:#f08a8a}
+:root[data-theme="dark"] .account-card.account-loan .loan-due-list>div{border-top-color:color-mix(in srgb,var(--account-tint) 38%,var(--line))}
+:root[data-theme="dark"] .account-card.account-loan .loan-due-list strong{color:#ff9c9c}
+:root[data-theme="dark"] .account-card.account-loan .loan-due-list small{color:#dbaaaa}
