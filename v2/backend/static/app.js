@@ -26,21 +26,22 @@ async function api(path, options={}) {
   return body;
 }
 function showLogin(message='') { $('#app-view').hidden=true; $('#login-view').hidden=false; $('#login-error').textContent=message; }
-function showApp(user) { $('#login-view').hidden=true; $('#app-view').hidden=false; $('#user-name').textContent=user; $('#month-picker').value=selectedMonth; showPage(location.hash.slice(1)||'overview',false); refresh(); loadPlanning(); }
+function showApp(user) { $('#login-view').hidden=true; $('#app-view').hidden=false; $('#user-name').textContent=user; $('#month-picker').value=selectedMonth; showPage(location.hash.slice(1)||'overview',false); refresh(); loadPlanning(); loadFinance(); }
 function toast(message) { const el=$('#toast'); el.textContent=message; el.classList.add('show'); clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('show'),2800); }
 function escapeHtml(text) { return String(text ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function formatDate(value) { return new Date(`${value}T00:00:00`).toLocaleDateString('ko-KR',{month:'short',day:'numeric'}); }
-const pageIds=new Set(['overview','transactions','planning','import']);
+const pageIds=new Set(['overview','transactions','accounts','planning','import']);
 function showPage(page,addHistory=true){
   if(!pageIds.has(page))page='overview';
   document.querySelectorAll('[data-page-view]').forEach(section=>section.hidden=section.id!==page);
   document.querySelectorAll('.nav-link[data-page]').forEach(link=>{const active=link.dataset.page===page;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
   if(addHistory&&location.hash!==`#${page}`)history.pushState({page},'',`#${page}`);
   window.scrollTo({left:0,top:0,behavior:'auto'});
+  if(page==='accounts'&&!$('#app-view').hidden)loadFinance();
 }
 function syncPageFromLocation(){showPage(location.hash.slice(1)||'overview',false);}
 function monthMove(delta) { const [y,m]=selectedMonth.split('-').map(Number); const d=new Date(y,m-1+delta,1); selectedMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; $('#month-picker').value=selectedMonth; refresh(); }
-async function refresh() { if ($('#app-view').hidden) return; await Promise.all([loadSummary(),loadTransactions(),loadRecentTransactions()]); }
+async function refresh() { if ($('#app-view').hidden) return; await Promise.all([loadSummary(),loadTransactions(),loadRecentTransactions(),loadFinance()]); }
 async function loadSummary() {
   try {
     const s=await api(`/api/summary?month=${encodeURIComponent(selectedMonth)}`);
@@ -63,13 +64,60 @@ async function loadTransactions() {
     const owner=$('#owner-filter').value;
     const visible=owner?loadedTransactions.filter(x=>x.owner===owner):loadedTransactions;
     const body=$('#transaction-rows'); $('#empty-state').hidden=visible.length>0;
-    body.innerHTML=visible.map(t=>`<tr><td>${formatDate(t.occurred_on)}</td><td class="tx-name">${escapeHtml(t.name)}</td><td>${escapeHtml(t.category)}</td><td><span class="owner-badge owner-${t.owner}">${whoNames[t.owner]||'공동'}</span></td><td><span class="pay-badge">${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}</span></td><td class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</td><td><button class="row-edit" data-id="${escapeHtml(t.id)}">보기</button></td></tr>`).join('');
+    body.innerHTML=visible.map(t=>`<tr><td>${formatDate(t.occurred_on)}</td><td class="tx-name">${escapeHtml(t.name)}</td><td>${escapeHtml(t.category)}</td><td><span class="owner-badge owner-${t.owner}">${whoNames[t.owner]||'공동'}</span></td><td><span class="pay-badge">${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}${t.payment_account_id?` · ${escapeHtml(financeAccounts.find(a=>a.id===t.payment_account_id)?.name||'')}`:''}</span></td><td class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</td><td><button class="row-edit" data-id="${escapeHtml(t.id)}">보기</button></td></tr>`).join('');
   } catch(e) { toast(e.message); }
 }
 async function loadRecentTransactions(){
-  try{const rows=await api(`/api/transactions?month=${encodeURIComponent(selectedMonth)}&limit=5`);const box=$('#recent-transactions');box.innerHTML=rows.length?rows.map(t=>`<button type="button" class="recent-row" data-recent-id="${escapeHtml(t.id)}"><span class="recent-date">${formatDate(t.occurred_on)}</span><span class="recent-main"><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.category)} · ${whoNames[t.owner]||'공동'} · ${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}</small></span><strong class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</strong></button>`).join(''):'<div class="recent-empty">이 달에 기록된 거래가 없습니다.</div>';}
+  try{const rows=await api(`/api/transactions?month=${encodeURIComponent(selectedMonth)}&limit=5`);const box=$('#recent-transactions');box.innerHTML=rows.length?rows.map(t=>`<button type="button" class="recent-row" data-recent-id="${escapeHtml(t.id)}"><span class="recent-date">${formatDate(t.occurred_on)}</span><span class="recent-main"><b>${escapeHtml(t.name)}</b><small>${escapeHtml(t.category)} · ${whoNames[t.owner]||'공동'} · ${t.payment_method==='card'?'카드':t.payment_method==='cash'?'현금·이체':'미정'}${t.payment_account_id?` · ${escapeHtml(financeAccounts.find(a=>a.id===t.payment_account_id)?.name||'')}`:''}</small></span><strong class="amount ${t.direction}">${t.direction==='income'?'+':'−'}${won.format(t.amount)}</strong></button>`).join(''):'<div class="recent-empty">이 달에 기록된 거래가 없습니다.</div>';}
   catch(e){toast(e.message);}
 }
+let financeAccounts=[];
+const accountKinds={bank:'내 계좌',loan:'대출 계좌',investment:'투자 계좌',card:'신용카드'};
+const cadences={monthly:'매월',quarterly:'분기',yearly:'매년',weekly:'매주'};
+function accountLabel(a){return `${a.name}${a.last_four?` · ${a.last_four}`:''}`;}
+function fillAccountOptions(select,items,placeholder='선택 안 함'){
+  const selected=select.value;select.innerHTML=`<option value="">${placeholder}</option>`+items.map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(accountLabel(a))}</option>`).join('');
+  if(items.some(a=>a.id===selected))select.value=selected;
+}
+function refreshPaymentAccountOptions(preferred){
+  const form=$('#transaction-form'),method=form.elements.payment_method.value,select=form.elements.payment_account_id;
+  const expected=method==='card'?'card':method==='cash'?'bank':null;
+  const options=expected?financeAccounts.filter(a=>a.kind===expected):[];
+  fillAccountOptions(select,options,expected==='card'?'카드 선택 안 함':expected==='bank'?'계좌 선택 안 함':'선택 안 함');
+  if(preferred)select.value=preferred;
+  $('#payment-account-field').hidden=!method;
+}
+async function loadFinance(){
+  try{
+    const data=await api(`/api/finance?month=${encodeURIComponent(selectedMonth)}`);financeAccounts=data.accounts;
+    const nameById=Object.fromEntries(financeAccounts.map(a=>[a.id,accountLabel(a)]));
+    const cards=financeAccounts.filter(a=>a.kind==='card');
+    fillAccountOptions($('#benefit-form').elements.account_id,cards,'카드를 선택해 주세요');
+    fillAccountOptions($('#autopay-form').elements.source_account_id,financeAccounts.filter(a=>['bank','card'].includes(a.kind)),'계좌·카드 선택 안 함');
+    fillAccountOptions($('#autopay-form').elements.related_card_id,cards,'연결 카드 없음');
+    refreshPaymentAccountOptions($('#transaction-form').elements.payment_account_id.value);
+    const box=$('#account-list');
+    box.innerHTML=financeAccounts.length?financeAccounts.map(a=>`<article class="account-card"><div class="account-card-top"><span class="account-kind">${accountKinds[a.kind]}</span><div><button type="button" class="row-edit" data-edit-account="${escapeHtml(a.id)}">수정</button><button type="button" class="row-edit" data-delete-account="${escapeHtml(a.id)}">삭제</button></div></div><h3>${escapeHtml(a.name)}</h3><p>${escapeHtml(a.institution||'금융사 미입력')} · ${whoNames[a.owner]||'공동'}${a.last_four?` · 끝 ${escapeHtml(a.last_four)}`:''}</p>${a.balance!==null?`<strong class="account-balance">${a.kind==='loan'?'대출 잔액':'현재 잔액'} ${won.format(a.balance)}</strong>`:''}${a.kind==='card'?`<div class="card-usage"><b>이번 달 사용 ${won.format(a.month_spend||0)}</b><span>연간 ${won.format(a.year_spend||0)}${a.credit_limit!==null?` · 한도 ${won.format(a.credit_limit)}`:''}${a.billing_day?` · ${a.billing_day}일 결제`:''}</span></div><div class="benefit-list">${(a.benefits||[]).map(b=>`<div class="benefit-row"><span><b>${escapeHtml(b.name)}</b><small>${escapeHtml(b.category==='*'?'전체':b.category)} · ${b.period==='yearly'?'연간':'월간'}${b.notes?` · ${escapeHtml(b.notes)}`:''} · 적용 사용액 ${won.format(b.eligible_spend||0)}</small></span><strong>${won.format(b.estimated_value||0)}</strong><button type="button" class="row-edit" data-delete-benefit="${escapeHtml(a.id)}:${escapeHtml(b.id)}">삭제</button></div>`).join('')||'<small class="muted">등록한 혜택 규칙이 없습니다.</small>'}</div>`:''}${a.notes?`<small class="account-notes">${escapeHtml(a.notes)}</small>`:''}</article>`).join(''):'<div class="account-empty">계좌나 카드를 추가해 금융 정보를 모아보세요.</div>';
+    const autopays=data.automatic_payments,autopayBox=$('#autopay-list');
+    autopayBox.innerHTML=autopays.length?autopays.map(p=>`<div class="plan-row"><span><b>${escapeHtml(p.name)}</b><small>${cadences[p.cadence]}${p.debit_day?` · ${p.debit_day}일`:''} · ${escapeHtml(p.category)} · 결제 ${escapeHtml(nameById[p.source_account_id]||'계좌 미지정')}${p.related_card_id?` · 카드 ${escapeHtml(nameById[p.related_card_id]||'')}`:''}${p.notes?` · ${escapeHtml(p.notes)}`:''}</small></span><strong>${p.amount?won.format(p.amount):'변동 금액'}</strong><button type="button" class="row-edit" data-delete-autopay="${escapeHtml(p.id)}">삭제</button></div>`).join(''):'<p class="muted">등록한 자동이체·정기결제가 없습니다.</p>';
+  }catch(e){if(!$('#app-view').hidden)toast(e.message);}
+}
+function accountPayload(form){const e=form.elements,kind=e.kind.value;return {kind,name:e.name.value.trim(),institution:e.institution.value.trim(),owner:e.owner.value,last_four:e.last_four.value.trim(),balance:e.balance.value===''?null:Number(e.balance.value),credit_limit:kind==='card'&&e.credit_limit.value!==''?Number(e.credit_limit.value):null,billing_day:kind==='card'&&e.billing_day.value!==''?Number(e.billing_day.value):null,notes:e.notes.value.trim()};}
+function resetAccountForm(){const f=$('#account-form');f.reset();f.elements.id.value='';$('#account-form-title').textContent='계좌나 카드 추가';$('#account-cancel-edit').hidden=true;toggleAccountFields();}
+function toggleAccountFields(){const card=$('#account-form').elements.kind.value==='card';document.querySelectorAll('.card-only-field').forEach(x=>x.hidden=!card);}
+$('#account-form').elements.kind.addEventListener('change',toggleAccountFields);
+$('#account-cancel-edit').addEventListener('click',resetAccountForm);
+$('#account-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,id=f.elements.id.value;try{await api(id?`/api/finance/accounts/${encodeURIComponent(id)}`:'/api/finance/accounts',{method:id?'PUT':'POST',body:JSON.stringify(accountPayload(f))});resetAccountForm();toast('계좌 정보를 저장했어요.');await loadFinance();}catch(err){toast(err.message);}});
+$('#account-list').addEventListener('click',async e=>{
+  const edit=e.target.closest('[data-edit-account]'),del=e.target.closest('[data-delete-account]'),benefit=e.target.closest('[data-delete-benefit]');
+  if(edit){const a=financeAccounts.find(x=>x.id===edit.dataset.editAccount);if(!a)return;const f=$('#account-form');for(const k of ['id','kind','name','institution','owner','last_four','balance','credit_limit','billing_day','notes'])f.elements[k].value=a[k]??'';$('#account-form-title').textContent=`${accountKinds[a.kind]} 수정`;$('#account-cancel-edit').hidden=false;toggleAccountFields();f.scrollIntoView({behavior:'smooth',block:'center'});return;}
+  if(del){if(!window.confirm('이 계좌를 삭제할까요? 연결 거래의 계좌 표시와 자동이체 연결은 해제됩니다.'))return;try{await api(`/api/finance/accounts/${encodeURIComponent(del.dataset.deleteAccount)}`,{method:'DELETE'});await loadFinance();toast('계좌를 삭제했어요.');}catch(err){toast(err.message);}return;}
+  if(benefit){const [aid,bid]=benefit.dataset.deleteBenefit.split(':');try{await api(`/api/finance/accounts/${encodeURIComponent(aid)}/benefits/${encodeURIComponent(bid)}`,{method:'DELETE'});await loadFinance();}catch(err){toast(err.message);}}
+});
+$('#benefit-form').elements.reward_type.addEventListener('change',e=>{const fixed=e.target.value==='fixed';document.querySelectorAll('.rate-benefit-field').forEach(x=>x.hidden=fixed);document.querySelectorAll('.fixed-benefit-field').forEach(x=>x.hidden=!fixed);});
+$('#benefit-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,a=f.elements.account_id.value;const payload={name:f.elements.name.value.trim(),category:f.elements.category.value,reward_type:f.elements.reward_type.value,rate_bps:Math.round(Number(f.elements.rate.value||0)*100),fixed_amount:Number(f.elements.fixed_amount.value||0),cap_amount:f.elements.cap_amount.value===''?null:Number(f.elements.cap_amount.value),minimum_spend:Number(f.elements.minimum_spend.value||0),period:f.elements.period.value,notes:f.elements.notes.value.trim()};try{await api(`/api/finance/accounts/${encodeURIComponent(a)}/benefits`,{method:'POST',body:JSON.stringify(payload)});f.reset();f.elements.rate.value='1';f.elements.minimum_spend.value='0';await loadFinance();toast('카드 혜택을 추가했어요.');}catch(err){toast(err.message);}});
+$('#autopay-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,payload={name:f.elements.name.value.trim(),amount:Number(f.elements.amount.value||0),cadence:f.elements.cadence.value,debit_day:f.elements.debit_day.value?Number(f.elements.debit_day.value):null,category:f.elements.category.value,source_account_id:f.elements.source_account_id.value||null,related_card_id:f.elements.related_card_id.value||null,notes:f.elements.notes.value.trim()};try{await api('/api/finance/automatic-payments',{method:'POST',body:JSON.stringify(payload)});f.reset();await loadFinance();toast('정기결제 정보를 저장했어요.');}catch(err){toast(err.message);}});
+$('#autopay-list').addEventListener('click',async e=>{const b=e.target.closest('[data-delete-autopay]');if(!b)return;try{await api(`/api/finance/automatic-payments/${encodeURIComponent(b.dataset.deleteAutopay)}`,{method:'DELETE'});await loadFinance();}catch(err){toast(err.message);}});
 function openTransaction(type='expense', transaction=null) {
   const form=$('#transaction-form'); form.reset(); form.elements.id.value=transaction?.id||''; form.elements.direction.value=transaction?.direction||type;
   form.elements.occurred_on.value=transaction?.occurred_on||`${selectedMonth}-${String(new Date().getDate()).padStart(2,'0')}`;
@@ -77,13 +125,13 @@ function openTransaction(type='expense', transaction=null) {
   const category=form.elements.category; const categoryValue=transaction?.category||'';
   if(categoryValue&&!Array.from(category.options).some(option=>option.value===categoryValue)){const option=document.createElement('option');option.value=categoryValue;option.textContent=`${categoryValue} · 기존`;category.append(option);}
   category.value=categoryValue;
-  form.elements.owner.value=transaction?.owner||'j'; form.elements.payment_method.value=transaction?.payment_method??'cash'; form.elements.memo.value=transaction?.memo||'';
+  form.elements.owner.value=transaction?.owner||'j'; form.elements.payment_method.value=transaction?.payment_method??'cash'; form.elements.memo.value=transaction?.memo||''; refreshPaymentAccountOptions(transaction?.payment_account_id||'');
   $('#dialog-title').textContent=transaction?'거래 수정':'거래 추가'; $('#delete-transaction').hidden=!transaction; $('#transaction-error').textContent=''; setDirection(form.elements.direction.value); $('#transaction-dialog').showModal();
 }
 function setDirection(direction) { $('#transaction-form').elements.direction.value=direction; document.querySelectorAll('.type-toggle button').forEach(b=>b.classList.toggle('selected',b.dataset.direction===direction)); }
 async function saveTransaction(event) {
   event.preventDefault(); const form=$('#transaction-form'); const id=form.elements.id.value;
-  const payload={occurred_on:form.elements.occurred_on.value,name:form.elements.name.value.trim(),category:form.elements.category.value.trim(),amount:Number(form.elements.amount.value),direction:form.elements.direction.value,owner:form.elements.owner.value,payment_method:form.elements.payment_method.value||null,memo:form.elements.memo.value.trim()};
+  const payload={occurred_on:form.elements.occurred_on.value,name:form.elements.name.value.trim(),category:form.elements.category.value.trim(),amount:Number(form.elements.amount.value),direction:form.elements.direction.value,owner:form.elements.owner.value,payment_method:form.elements.payment_method.value||null,payment_account_id:form.elements.payment_account_id.value||null,memo:form.elements.memo.value.trim()};
   try { await api(id?`/api/transactions/${encodeURIComponent(id)}`:'/api/transactions',{method:id?'PUT':'POST',body:JSON.stringify(payload)}); $('#transaction-dialog').close(); selectedMonth=payload.occurred_on.slice(0,7); $('#month-picker').value=selectedMonth; await refresh(); toast(id?'거래를 수정했어요.':'거래를 저장했어요.'); }
   catch(e) { $('#transaction-error').textContent=e.message; }
 }
@@ -164,6 +212,7 @@ $('#add-button').addEventListener('click',()=>openTransaction()); $('#empty-add'
 document.querySelectorAll('.quick-action').forEach(b=>b.addEventListener('click',()=>openTransaction(b.dataset.type)));
 document.querySelectorAll('.type-toggle button').forEach(b=>b.addEventListener('click',()=>setDirection(b.dataset.direction)));
 $('#transaction-form').addEventListener('submit',saveTransaction); $('#delete-transaction').addEventListener('click',deleteTransaction);
+$('#transaction-form').elements.payment_method.addEventListener('change',()=>refreshPaymentAccountOptions(''));
 $('#close-dialog').addEventListener('click',()=>$('#transaction-dialog').close()); $('#cancel-dialog').addEventListener('click',()=>$('#transaction-dialog').close());
 $('#transaction-rows').addEventListener('click',event=>{const button=event.target.closest('[data-id]');if(!button)return;const tx=loadedTransactions.find(x=>x.id===button.dataset.id);if(tx)openTransaction(tx.direction,tx);});
 $('#prev-month').addEventListener('click',()=>monthMove(-1)); $('#next-month').addEventListener('click',()=>monthMove(1)); $('#month-picker').addEventListener('change',event=>{if(event.target.value){selectedMonth=event.target.value;refresh();loadPlanning();}});
