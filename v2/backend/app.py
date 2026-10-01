@@ -280,6 +280,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     with database() as db:
         rows=db.execute("SELECT direction,owner,category,payment_method,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s AND occurred_on < %s GROUP BY direction,owner,category,payment_method",(start,end)).fetchall()
         fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
+        loan_accounts=db.execute("SELECT * FROM financial_accounts WHERE kind='loan'").fetchall()
         anchor=db.execute('SELECT month,amount FROM carry_anchors WHERE month<=%s ORDER BY month DESC LIMIT 1',(month,)).fetchone()
         flow_start=anchor['month'] if anchor else f'{start.year}-01'
         fs_y,fs_m=map(int,flow_start.split('-')); history_start=f'{fs_y-1:04d}-12' if fs_m==1 else f'{fs_y:04d}-{fs_m-1:02d}'
@@ -293,7 +294,8 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         if r['direction']=='expense' and r['category'] not in PASSTHROUGH:
             by_category[r['category']]=by_category.get(r['category'],0)+r['amount']
     fixed_items=(fixed['items'] or []) if fixed else []
-    fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_items if x.get('payMethod',x.get('payment_method','cash'))!='card')
+    loan_due=loan_payments_by_month(loan_accounts,history_start,month)
+    fixed_total=planned_cash_total(fixed_items,loan_due.get(month,{}))
     flow_by_month={}
     for row in flow_rows: flow_by_month.setdefault(row['transaction_month'],[]).append(row)
     fixed_by_month={r['month']:(r['items'] or []) for r in flow_fixed}
@@ -308,7 +310,7 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         settlement=sum(r['amount'] for r in txs if r['direction']=='income' and r['category']=='정산')
         sidegig=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in txs if r['category']=='부업')
         card_pay=sum(r['amount'] for r in txs if r['direction']=='expense' and r['category']=='카드대금')
-        cash_fixed=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_by_month.get(ym,[]) if x.get('payMethod',x.get('payment_method','cash'))!='card')
+        cash_fixed=planned_cash_total(fixed_by_month.get(ym,[]),loan_due.get(ym,{}))
         prev_y,prev_m=map(int,ym.split('-')); prev_ym=f'{prev_y-1:04d}-12' if prev_m==1 else f'{prev_y:04d}-{prev_m-1:02d}'
         card_excess=max(0,card_usage(prev_ym)-card_pay)
         return real_income+settlement+sidegig-cash_expense-cash_fixed-card_pay-card_excess
@@ -369,6 +371,28 @@ def loan_schedule(account):
         schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance,'principal_deferred':deferred})
         accrual_start=due
     return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
+
+
+def loan_payments_by_month(accounts, start_month, end_month):
+    """Return scheduled loan cash payments grouped by month and loan display name."""
+    due={}
+    for account in accounts:
+        if account.get('kind')!='loan' or not account.get('loan_principal'):
+            continue
+        name=str(account.get('name') or '').strip()
+        for row in loan_schedule(dict(account))['schedule']:
+            month=row['month']
+            if start_month<=month<=end_month and row['payment']:
+                due.setdefault(month,{})[name]=due.setdefault(month,{}).get(name,0)+int(row['payment'])
+    return due
+
+def planned_cash_total(items, loan_due):
+    """Combine manual cash plans and loan schedules without same-name duplicates."""
+    loan_names={name.casefold() for name in loan_due}
+    manual=sum(int(item.get('amt',item.get('amount',0))) for item in items
+               if item.get('payMethod',item.get('payment_method','cash'))!='card'
+               and str(item.get('name') or '').strip().casefold() not in loan_names)
+    return manual+sum(loan_due.values())
 
 def installment_schedule(purchase):
     total=int(purchase['total_amount']); count=int(purchase['installment_count']); rate=int(purchase['annual_rate_bps'])/120000
@@ -563,6 +587,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
     with database() as db:
         events=db.execute('SELECT id,value FROM simulation_events').fetchall()
         fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
+        loan_accounts=db.execute("SELECT * FROM financial_accounts WHERE kind='loan'").fetchall()
         salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
         tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') AS transaction_month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,5",(start+'-01',start+'-01',months)).fetchall()
     salary=salary_row['value'] if salary_row else {'enabled':False,'salary_j':0,'salary_m':0}
@@ -571,7 +596,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
         if x['category'] not in PASSTHROUGH:
             actual[x['transaction_month']][x['direction']]+=x['amount']
             if x['direction']=='expense': actual[x['transaction_month']]['cash_expense']+=x['cash_amount']
-    fixed_map={x['month']:(x['items'] or []) for x in fixed}; result=[]
+    fixed_map={x['month']:(x['items'] or []) for x in fixed}; loan_due=loan_payments_by_month(loan_accounts,month_list[0],month_list[-1]); result=[]
     for m in month_list:
         yy,mm=map(int,m.split('-'))
         event_net=0
@@ -580,7 +605,7 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
             if event.get('repeat'):
                 occurs=(int(event.get('start_year',yy))<=yy<=int(event.get('end_year',yy)) and mm in event.get('months',[]))
             if occurs: event_net+=(1 if event.get('direction')=='income' else -1)*int(event.get('amount',0))
-        fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_map.get(m,[]) if x.get('payMethod',x.get('payment_method','cash'))=='cash')
+        fixed_total=planned_cash_total(fixed_map.get(m,[]),loan_due.get(m,{}))
         expected_salary=(int(salary.get('salary_j',0))+int(salary.get('salary_m',0))) if salary.get('enabled') else 0
         result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['cash_expense']-fixed_total})
     return result
