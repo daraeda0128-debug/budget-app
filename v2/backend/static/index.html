@@ -29,7 +29,7 @@
   <div id="app-view" class="app-shell" hidden>
     <aside class="sidebar">
       <a class="brand" href="#"><span class="brand-mark small">월</span><span>월렛<span class="brand-sub">JINSU & MINA</span></span></a>
-      <nav><a class="nav-link active" href="#overview">▦ <span>요약</span></a><a class="nav-link" href="#transactions">↕ <span>거래 내역</span></a><a class="nav-link" href="#import">⇧ <span>CSV 가져오기</span></a></nav>
+      <nav><a class="nav-link active" href="#overview">▦ <span>요약</span></a><a class="nav-link" href="#transactions">↕ <span>거래 내역</span></a><a class="nav-link" href="#planning">◷ <span>계획</span></a><a class="nav-link" href="#import">⇧ <span>CSV 가져오기</span></a></nav>
       <div class="sidebar-note"><span class="status-dot"></span> 개인 서버에 저장 중</div>
       <button id="logout-button" class="logout-button">로그아웃</button>
     </aside>
@@ -56,6 +56,13 @@
       </section>
 
       <section id="import" class="panel import-panel"><div class="panel-heading"><div><p class="eyebrow">STATEMENT IMPORT</p><h2>CSV 가져오기</h2><p>은행·카드사 CSV를 미리 확인하고 한 번에 등록합니다.</p></div></div><label class="drop-zone" for="csv-file"><span class="upload-mark">⇧</span><b>CSV 파일을 선택하세요</b><small>파일은 이 화면에서만 읽고 서버에 저장하지 않습니다.</small><input id="csv-file" type="file" accept=".csv,text/csv"></label><div id="import-preview" class="import-preview" hidden><div class="preview-top"><div><b id="preview-title">가져오기 미리보기</b><small id="preview-count"></small></div><div class="preview-actions"><button id="cancel-import" class="button secondary">취소</button><button id="confirm-import" class="button primary">가져오기</button></div></div><div id="preview-warnings" class="notice" hidden></div><div id="preview-rows" class="preview-rows"></div></div></section>
+
+      <section id="planning" class="panel planning-panel"><div class="panel-heading"><div><p class="eyebrow">HOUSEHOLD PLAN</p><h2>급여 · 고정지출 · 이월</h2><p>월별 계획값을 저장하고 실제 거래와 구분해 살펴봅니다.</p></div></div>
+        <form id="salary-form" class="plan-form"><h3>급여 설정</h3><label class="check-label"><input type="checkbox" name="enabled"> 월별 예상 급여 포함</label><div class="plan-grid"><label>진수 급여<input type="number" inputmode="numeric" min="0" name="salary_j" placeholder="0"></label><label>입금일<input type="number" min="1" max="31" name="day_j" value="10"></label><label>미나 급여<input type="number" inputmode="numeric" min="0" name="salary_m" placeholder="0"></label><label>입금일<input type="number" min="1" max="31" name="day_m" value="17"></label></div><button class="button secondary" type="submit">급여 설정 저장</button><small>예상 급여는 실제 거래내역에 자동 등록되지 않습니다.</small></form>
+        <form id="fixed-form" class="plan-form"><h3><span id="fixed-month-label"></span> 고정지출</h3><div id="fixed-list" class="fixed-list"></div><div class="plan-grid"><label>항목<input name="name" maxlength="160" placeholder="예: 월세" required></label><label>금액<input name="amount" type="number" inputmode="numeric" min="0" placeholder="0" required></label><label>결제수단<select name="payment_method"><option value="cash">현금·이체</option><option value="card">카드</option></select></label><label>담당<select name="owner"><option value="b">공동</option><option value="j">진수</option><option value="m">미나</option></select></label></div><button class="button secondary" type="submit">고정지출 추가</button><button class="button primary" id="save-fixed" type="button">이번 달 고정지출 저장</button></form>
+        <form id="carry-form" class="plan-form"><h3>이월 잔액 기준점</h3><p class="muted">선택한 달의 시작 잔액을 입력하면 이후 월 흐름에서 계산합니다.</p><label>월 시작 잔액<input name="amount" type="number" inputmode="numeric" step="1" placeholder="원 단위"></label><button class="button secondary" type="submit">기준 잔액 저장</button><span id="carry-result" class="muted"></span></form>
+        <form id="event-form" class="plan-form"><h3>시뮬레이션 예정 항목</h3><div id="event-list" class="fixed-list"></div><div class="plan-grid"><label>항목명<input name="name" required maxlength="160" placeholder="예: 자동차 보험"></label><label>금액<input name="amount" type="number" min="1" inputmode="numeric" required></label><label>예정 월<input name="month" type="month" required></label><label>구분<select name="direction"><option value="expense">지출</option><option value="income">수입</option></select></label></div><button class="button secondary" type="submit">예정 항목 추가</button><div id="forecast-list" class="forecast-list"></div></form>
+      </section>
       <footer>월렛 · 거래 데이터는 개인 PostgreSQL에 저장됩니다.</footer>
     </main>
   </div>

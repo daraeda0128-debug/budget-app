@@ -78,6 +78,32 @@ class Transaction(BaseModel):
         if v not in {None,'cash','card'}: raise ValueError('invalid payment method')
         return v
 
+class FixedSnapshot(BaseModel):
+    items: list[dict] = Field(max_length=200)
+
+class SalarySettings(BaseModel):
+    enabled: bool = False
+    salary_j: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
+    salary_m: int = Field(default=0, ge=0, le=9_000_000_000_000_000)
+    day_j: int = Field(default=10, ge=1, le=31)
+    day_m: int = Field(default=17, ge=1, le=31)
+
+class CarryAnchor(BaseModel):
+    amount: int = Field(ge=-9_000_000_000_000_000, le=9_000_000_000_000_000)
+
+class SimulationEvent(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+    amount: int = Field(gt=0, le=9_000_000_000_000_000)
+    direction: str
+    month: str = Field(pattern=r'^\d{4}-\d{2}$')
+    owner: str = 'b'
+
+    @field_validator('direction')
+    @classmethod
+    def valid_event_direction(cls, v):
+        if v not in {'income','expense'}: raise ValueError('invalid direction')
+        return v
+
 @app.get('/health')
 def health():
     with database() as db: db.execute('SELECT 1')
@@ -130,6 +156,9 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
     with database() as db:
         rows=db.execute('SELECT direction,owner,category,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s AND occurred_on < %s GROUP BY direction,owner,category',(start,end)).fetchall()
         fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
+        anchor=db.execute('SELECT month,amount FROM carry_anchors WHERE month<=%s ORDER BY month DESC LIMIT 1',(month,)).fetchone()
+        later=db.execute('SELECT month,amount FROM carry_anchors WHERE month>%s ORDER BY month',(anchor['month'] if anchor else '0000-00',)).fetchall()
+        prior=db.execute("SELECT COALESCE(sum(CASE WHEN direction='income' THEN amount ELSE -amount END),0)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s::date",(f"{anchor['month']}-01" if anchor else f'{start.year}-01-01',start.isoformat())).fetchone()
     income=sum(r['amount'] for r in rows if r['direction']=='income' and r['category'] not in PASSTHROUGH)
     expenses=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH)
     pass_net=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in rows if r['category'] in PASSTHROUGH)
@@ -138,7 +167,97 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         if r['direction']=='expense' and r['category'] not in PASSTHROUGH:
             by_category[r['category']]=by_category.get(r['category'],0)+r['amount']
     fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in (fixed['items'] if fixed else []) if x.get('payMethod',x.get('payment_method','cash'))!='card')
-    return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':income-expenses-fixed_total+pass_net,'pass_net':pass_net,'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
+    net=income-expenses-fixed_total+pass_net
+    carry=int(anchor['amount'])+int(prior['amount']) if anchor else None
+    return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
+
+def valid_month(month):
+    try:
+        if len(month)!=7 or month[4]!='-': raise ValueError()
+        date.fromisoformat(month+'-01')
+    except ValueError: raise HTTPException(422,'Use YYYY-MM')
+
+@app.get('/api/fixed')
+def get_fixed(month: str, user=Depends(authenticated)):
+    valid_month(month)
+    with database() as db:
+        row=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
+    return {'month':month,'items':row['items'] if row else []}
+
+@app.put('/api/fixed/{month}')
+def put_fixed(month: str, data: FixedSnapshot, user=Depends(authenticated)):
+    valid_month(month)
+    clean=[]
+    for item in data.items:
+        name=str(item.get('name','')).strip(); amount=item.get('amt',item.get('amount',0)); pay=item.get('payMethod',item.get('payment_method','cash'))
+        if not name or len(name)>160 or type(amount) is not int or amount<0 or amount>9_000_000_000_000_000 or pay not in {'cash','card'}: raise HTTPException(422,'Invalid fixed expense')
+        clean.append({**item,'name':name,'amt':amount,'payMethod':pay})
+    with database() as db:
+        db.execute('INSERT INTO fixed_snapshots(month,items) VALUES (%s,%s) ON CONFLICT(month) DO UPDATE SET items=EXCLUDED.items',(month,Jsonb(clean)))
+    return {'month':month,'items':clean}
+
+@app.get('/api/settings/salary')
+def get_salary(user=Depends(authenticated)):
+    with database() as db: row=db.execute("SELECT value FROM settings WHERE key='salary' ").fetchone()
+    return row['value'] if row else {'enabled':False,'salary_j':0,'salary_m':0,'day_j':10,'day_m':17}
+
+@app.put('/api/settings/salary')
+def put_salary(data: SalarySettings, user=Depends(authenticated)):
+    with database() as db: db.execute("INSERT INTO settings(key,value) VALUES ('salary',%s) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",(Jsonb(data.model_dump()),))
+    return data.model_dump()
+
+@app.get('/api/carry/{month}')
+def get_carry(month: str, user=Depends(authenticated)):
+    valid_month(month)
+    with database() as db: row=db.execute('SELECT amount FROM carry_anchors WHERE month=%s',(month,)).fetchone()
+    return {'month':month,'amount':row['amount'] if row else None}
+
+@app.put('/api/carry/{month}')
+def put_carry(month: str, data: CarryAnchor, user=Depends(authenticated)):
+    valid_month(month)
+    with database() as db: db.execute('INSERT INTO carry_anchors(month,amount) VALUES (%s,%s) ON CONFLICT(month) DO UPDATE SET amount=EXCLUDED.amount',(month,data.amount))
+    return {'month':month,'amount':data.amount}
+
+@app.get('/api/simulation')
+def get_simulation(user=Depends(authenticated)):
+    with database() as db: rows=db.execute('SELECT id,value FROM simulation_events ORDER BY id').fetchall()
+    return rows
+
+@app.post('/api/simulation',status_code=201)
+def add_simulation(data: SimulationEvent, user=Depends(authenticated)):
+    valid_month(data.month)
+    event={'name':data.name.strip(),'amount':data.amount,'direction':data.direction,'month':data.month,'owner':data.owner if data.owner in {'j','m','b'} else 'b'}
+    event_id=str(uuid.uuid4())
+    with database() as db: db.execute('INSERT INTO simulation_events(id,value) VALUES (%s,%s)',(event_id,Jsonb(event)))
+    return {'id':event_id,'value':event}
+
+@app.delete('/api/simulation/{event_id}',status_code=204)
+def delete_simulation(event_id: str,user=Depends(authenticated)):
+    with database() as db: row=db.execute('DELETE FROM simulation_events WHERE id=%s RETURNING id',(event_id,)).fetchone()
+    if not row: raise HTTPException(404,'Simulation event not found')
+
+@app.get('/api/simulation/forecast')
+def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
+    valid_month(start)
+    if not 1<=months<=24: raise HTTPException(422,'months must be 1–24')
+    sy,sm=map(int,start.split('-'))
+    month_list=[f'{(sy*12+sm-1+i)//12:04d}-{(sy*12+sm-1+i)%12+1:02d}' for i in range(months)]
+    with database() as db:
+        events=db.execute('SELECT id,value FROM simulation_events').fetchall()
+        fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
+        salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
+        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,sum(amount)::bigint amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4",(start+'-01',start+'-01',months)).fetchall()
+    salary=salary_row['value'] if salary_row else {'enabled':False,'salary_j':0,'salary_m':0}
+    actual={m:{'income':0,'expense':0} for m in month_list}
+    for x in tx:
+        if x['category'] not in PASSTHROUGH: actual[x['month']][x['direction']]+=x['amount']
+    fixed_map={x['month']:(x['items'] or []) for x in fixed}; result=[]
+    for m in month_list:
+        event_net=sum((1 if e['value'].get('direction')=='income' else -1)*int(e['value'].get('amount',0)) for e in events if e['value'].get('month')==m)
+        fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_map.get(m,[]) if x.get('payMethod',x.get('payment_method','cash'))=='cash')
+        expected_salary=(int(salary.get('salary_j',0))+int(salary.get('salary_m',0))) if salary.get('enabled') else 0
+        result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['expense']-fixed_total})
+    return result
 
 @app.get('/api/transactions')
 def transactions(month: str | None = None, q: str = '', response: Response = None, user=Depends(authenticated), limit: int=500, offset: int=0):
