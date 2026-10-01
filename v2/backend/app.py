@@ -157,8 +157,8 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
         rows=db.execute('SELECT direction,owner,category,sum(amount)::bigint amount FROM transactions WHERE occurred_on >= %s AND occurred_on < %s GROUP BY direction,owner,category',(start,end)).fetchall()
         fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month=%s',(month,)).fetchone()
         anchor=db.execute('SELECT month,amount FROM carry_anchors WHERE month<=%s ORDER BY month DESC LIMIT 1',(month,)).fetchone()
-        later=db.execute('SELECT month,amount FROM carry_anchors WHERE month>%s ORDER BY month',(anchor['month'] if anchor else '0000-00',)).fetchall()
-        prior=db.execute("SELECT COALESCE(sum(CASE WHEN direction='income' THEN amount ELSE -amount END),0)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s::date",(f"{anchor['month']}-01" if anchor else f'{start.year}-01-01',start.isoformat())).fetchone()
+        prior=db.execute("SELECT COALESCE(sum(CASE WHEN direction='income' THEN amount WHEN payment_method IS DISTINCT FROM 'card' THEN -amount ELSE 0 END),0)::bigint amount FROM transactions WHERE occurred_on >= %s::date AND occurred_on < %s::date",(f"{anchor['month']}-01" if anchor else f'{start.year}-01-01',start.isoformat())).fetchone()
+        prior_fixed=db.execute('SELECT items FROM fixed_snapshots WHERE month >= %s AND month < %s',(anchor['month'] if anchor else f'{start.year}-01',month)).fetchall()
     income=sum(r['amount'] for r in rows if r['direction']=='income' and r['category'] not in PASSTHROUGH)
     expenses=sum(r['amount'] for r in rows if r['direction']=='expense' and r['category'] not in PASSTHROUGH)
     pass_net=sum(r['amount']*(1 if r['direction']=='income' else -1) for r in rows if r['category'] in PASSTHROUGH)
@@ -168,7 +168,8 @@ def summary(month: str, response: Response, user=Depends(authenticated)):
             by_category[r['category']]=by_category.get(r['category'],0)+r['amount']
     fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in (fixed['items'] if fixed else []) if x.get('payMethod',x.get('payment_method','cash'))!='card')
     net=income-expenses-fixed_total+pass_net
-    carry=int(anchor['amount'])+int(prior['amount']) if anchor else None
+    prior_fixed_total=sum(int(item.get('amt',item.get('amount',0))) for snapshot in prior_fixed for item in (snapshot['items'] or []) if item.get('payMethod',item.get('payment_method','cash'))=='cash')
+    carry=int(anchor['amount'])+int(prior['amount'])-prior_fixed_total if anchor else None
     return {'month':month,'income':income,'expenses':expenses,'fixed_cash':fixed_total,'net_before_carry':net,'pass_net':pass_net,'carry_in':carry,'closing_balance':carry+net if carry is not None else None,'categories':sorted([{'name':k,'amount':v} for k,v in by_category.items()],key=lambda x:-x['amount'])}
 
 def valid_month(month):
@@ -246,17 +247,19 @@ def simulation_forecast(start: str, months: int=6, user=Depends(authenticated)):
         events=db.execute('SELECT id,value FROM simulation_events').fetchall()
         fixed=db.execute('SELECT month,items FROM fixed_snapshots WHERE month=ANY(%s)',(month_list,)).fetchall()
         salary_row=db.execute("SELECT value FROM settings WHERE key='salary'").fetchone()
-        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,sum(amount)::bigint amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4",(start+'-01',start+'-01',months)).fetchall()
+        tx=db.execute("SELECT to_char(occurred_on,'YYYY-MM') month,direction,sum(amount)::bigint amount,sum(CASE WHEN payment_method IS DISTINCT FROM 'card' THEN amount ELSE 0 END)::bigint cash_amount,category FROM transactions WHERE occurred_on >= %s::date AND occurred_on < (%s::date + (%s || ' months')::interval) GROUP BY 1,2,4,5",(start+'-01',start+'-01',months)).fetchall()
     salary=salary_row['value'] if salary_row else {'enabled':False,'salary_j':0,'salary_m':0}
-    actual={m:{'income':0,'expense':0} for m in month_list}
+    actual={m:{'income':0,'expense':0,'cash_expense':0} for m in month_list}
     for x in tx:
-        if x['category'] not in PASSTHROUGH: actual[x['month']][x['direction']]+=x['amount']
+        if x['category'] not in PASSTHROUGH:
+            actual[x['month']][x['direction']]+=x['amount']
+            if x['direction']=='expense': actual[x['month']]['cash_expense']+=x['cash_amount']
     fixed_map={x['month']:(x['items'] or []) for x in fixed}; result=[]
     for m in month_list:
         event_net=sum((1 if e['value'].get('direction')=='income' else -1)*int(e['value'].get('amount',0)) for e in events if e['value'].get('month')==m)
         fixed_total=sum(int(x.get('amt',x.get('amount',0))) for x in fixed_map.get(m,[]) if x.get('payMethod',x.get('payment_method','cash'))=='cash')
         expected_salary=(int(salary.get('salary_j',0))+int(salary.get('salary_m',0))) if salary.get('enabled') else 0
-        result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['expense']-fixed_total})
+        result.append({'month':m,'recorded_income':actual[m]['income'],'expected_salary':expected_salary,'recorded_expense':actual[m]['expense'],'fixed_cash':fixed_total,'planned_net':event_net+expected_salary+actual[m]['income']-actual[m]['cash_expense']-fixed_total})
     return result
 
 @app.get('/api/transactions')
