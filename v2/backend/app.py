@@ -354,6 +354,7 @@ def loan_schedule(account):
     schedule=[]; total_interest=0; accrual_start=account['execution_date']; resumed_payment=None
     for index in range(1,term+1):
         due=add_months(account['execution_date'],index); due=date(due.year,due.month,min(int(account['payment_day']),calendar.monthrange(due.year,due.month)[1]))
+        interest_days=(due-accrual_start).days
         interest=actual_actual_interest(balance,annual_rate,accrual_start,due)
         deferred=bool(defer_start and due>=defer_start and due<defer_end)
         if deferred: principal_due=0
@@ -367,7 +368,7 @@ def loan_schedule(account):
         else: principal_due=min(balance,max(0,monthly_payment-interest))
         if index==term: principal_due=balance
         payment=principal_due+interest; balance=max(0,balance-principal_due); total_interest+=interest
-        schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'payment':payment,'remaining_balance':balance,'principal_deferred':deferred})
+        schedule.append({'number':index,'date':due.isoformat(),'month':due.strftime('%Y-%m'),'principal':principal_due,'interest':interest,'interest_days':interest_days,'payment':payment,'remaining_balance':balance,'principal_deferred':deferred})
         accrual_start=due
     return {'maturity_date':add_months(account['execution_date'],term).isoformat(),'total_interest':total_interest,'schedule':schedule}
 
